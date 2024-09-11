@@ -1,6 +1,6 @@
 #!rsc by RouterOS
 # RouterOS script: mv_fSMP
-# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>
+# Copyright (c) 2023-2024 Sertik (Sergej Serkov) <mikrovoice@bk.ru>
 # https://github.com/Sertik13/MikroVoice/blob/main/LICENSE
 #
 # The ROS version is required to be at least version 6.43
