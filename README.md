@@ -5,4 +5,4 @@ If you insert scripts into your router's repository one at a time, then you shou
 
 To add the entire MikroVoice library, use MikroVoiceSys.rsc, which will be posted here later
 
-You can download the sound jingles for the system from the link:https://cloud.mail.ru/public/741f/9R317bvM5
+You can download the sound jingles for the system from the link: https://cloud.mail.ru/public/741f/9R317bvM5
