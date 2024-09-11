@@ -1,0 +1,143 @@
+#!rsc by RouterOS
+# RouterOS script: mv_fAlarm
+# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>
+# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE
+#
+# The ROS version is required to be at least version 6.43
+#
+# function Alarm for MikroVoice
+
+
+:global fAlarm do={
+
+  :global SMPport
+  :local AlarmFolder 1
+  :global fSMP
+  :local SMPflag true
+
+  :do {
+     :if (!any $fSMP) do={:global fSMP; /system script run mv_fSMP}; # function play SerialUSBPlayer_SMP;
+          } on-error={:set SMPflag false}
+
+
+   :if (!$SMPflag) do={:return "Error: no SMP function"}
+   
+
+:local ArrayComAlarm {
+"avto"="1"
+"trevoga"="2"
+"beeper"="3" 
+"sirena"="4"
+"gorn"="5"
+"ship"="6"
+"trell"="7"
+"policy"="8"
+"wake"="9"
+"start"="10"
+"imperial"="11"
+"gudok"="12"
+"xfiles"="13"
+"crazy"="14"
+"nupogody"="15"
+"retro"="16"
+"random"="17"
+"short"="18"
+"space"="19"
+"initial"="20"
+"run"="21"
+"news"="22"
+"optimus"="23"
+"insert"="24"
+"change"="25"
+"tehno"="26"
+"culture"="27"
+"retro"="28"
+"cosmodown"="29"
+"roy"="31"
+"robot1"="32"
+"nlo"="34"
+"lunokhod"="35"
+"object"="36"
+"fly"="38"
+"robot2"="39"
+"sms"="41"
+"samsung"="42"
+"blaster1"="44"
+"blaster2"="48"
+"policy"="50"
+"alarm_sirena"="51"
+"alarm_clock"="53"
+"alarm_secunds"="54"
+"alarm_beards"="55"
+"alcatel"="56"
+"standup"="57"
+"car"="58"
+"alarm_mixed"="59"
+"alarm_cuckoo"="60"
+"alarm_melody"="61"
+"cucaracha"="62"
+"lenovo"="63"
+"alarm_lumia"="64"
+"vestministr"="65"
+"police"="66"
+"alarm_rooster"="67"
+"alarm_softbells"="68"
+"alarm_sweet"="69"
+"clock_cuckoo"="70"
+"sonar"="71"
+"careless"="72"
+"eeee"="73"
+"intro"="74"
+"oy"="79"
+"scatman"="81"
+"gorn"="85"
+}
+
+
+#----------------------------------------------------------------------------
+# main function`s code
+# ---------------------------------------------------------------------------
+
+
+:if ([:len $1]=0) do={
+               :do {
+               [$fSMP playfile $AlarmFolder 1]
+                } on-error={:return "Error $0 function call MikroVoice module function fSMP"}
+   :return []
+}
+
+   :if ($1="list") do={
+      :put ""; :put "<---- List $0 jingles name ---->"
+          :foreach k,v in=$ArrayComAlarm do={:put $k}
+      :put "";
+  :return $ArrayComAlarm}
+
+ :if ($1="find") do={
+     :if ([:len ($ArrayComAlarm->$2)]>0) do={:return true} else={:return false}
+     }
+
+:local AlarmNum; :do {:set AlarmNum [:tonum $1]} on-error={}
+               :local JingleNum
+               :local SMPanswer
+               :local cmd
+
+:if ([:typeof $AlarmNum]="num") do={
+
+     :foreach k,v in=$ArrayComAlarm do={:if ($v=$AlarmNum) do={:set cmd $k; set JingleNum $v}}
+     :if ([:len $cmd]=0) do={:return "Error: jingle number mismatch $0"}
+               :put ("Play jingle"." $cmd". " < $JingleNum >"." in bibliojinglesfolder $AlarmFolder")
+               :log warning ("Play jingle"." $cmd". " < $JingleNum >"." in bibliojinglesfolder $AlarmFolder")
+               :do {
+               :set SMPanswer [$fSMP playfile $AlarmFolder $AlarmNum]
+                } on-error={:return "Error $0 function call MikroVoice module function fSMP"}
+                    } else={
+
+   :set cmd ($ArrayComAlarm->$1)
+    :if ([:len $cmd]=0) do={:return "Error: bad command/name jingle"}
+               :put "Play jingle $1 in bibliojinglesfolder $AlarmFolder"
+               :log warning "Play jingle $1 in bibliojinglesfolder $AlarmFolder"
+               :do {
+               :set SMPanswer [$fSMP playfile $AlarmFolder $cmd]
+                } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+   }
+  :return $SMPanswer
