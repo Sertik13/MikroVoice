@@ -1,0 +1,145 @@
+#!rsc by RouterOS
+# RouterOS script: mv_fSMP
+# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>
+# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE
+#
+# The ROS version is required to be at least version 6.43
+#
+# playback function for DF1201S (DF Player PRO) DFRobot comp. mp3 player
+#
+
+:global fSMP do={
+
+# ----------------------------------------
+:local ModuleType "DFPlayer"
+:local portTypeSerial "serial"
+:local portTypeUSB "usb"
+#-----------------------------------------
+:global serialModuleType $ModuleType
+:local portUSB;
+:local portSerial
+:local BaudRate 115200
+:local DataBits 8
+:local Parity none
+:local StopBits 1
+:local FlowControl none
+:local PppclientName $ModuleType
+:local DFcmdPrefix "AT+"
+:local DFcmdPostfix "\r\n"
+
+
+
+:global SMPport
+:local NewPort
+:local NowPort $SMPport; # сохранить текущий порт
+
+    :foreach portId in=[/port find name~$portTypeUSB !inactive] do={:set portUSB ([/port get $portId]->"name")}
+    :foreach portId in=[/port find name~$portTypeSerial used-by="" !inactive] do={:set portSerial ([/port get $portId]->"name")}
+  
+    :set NewPort $portUSB
+               :if ([:len $NewPort]=0) do={:set NewPort $portSerial}
+
+    :if (([:len $NewPort]=0) or ([:len [/port find name=$NewPort]]=0)) do={:return "Error: Not find port for SMPlayer module, port inactive or busy. Please, check /port"}
+
+   :if (($NowPort!=$NewPort) and ([/port find name=$NowPort and inactive=yes])) do={:set SMPport $NewPort} else={:set SMPport $NowPort}
+   :if ([:len $SMPport]=0) do={:set $SMPport $NewPort}
+  
+   :local gpio
+   :do {:set gpio [/system routerboard settings get gpio]} on-error={}
+
+  :local consoleFlagOff false
+        if ([:len [/system console find port=$SMPport and !disabled]]>0) do={
+                :set consoleFlagOff true
+                /system console set [/system console find port=$SMPport] disable=yes
+        }
+
+   :if (($SMPport~$portTypeSerial) and ([:len $gpio]=0)) do={
+      :put "";
+      :put "ERROR: not set GPIO-pins to $SMPport port."
+      :put "execute commands: /system routerboard settings set gpio=$SMPport"
+      :put "                  /system reboot"
+      :return "Error not set gpio serial. Function $0 d`not work"
+   }
+
+    do {
+             /port set [/port find name=$SMPport] baud-rate=$BaudRate data-bits=$DataBits parity=$Parity stop-bits=$StopBits flow-control=$FlowControl
+          } on-error={:return "Error set port $SMPport. Function $0 d`not work"}
+
+:local ArrayComDFP {
+   "verify"="AT"
+   "play"="PLAYNUM="
+   "playmode"="PLAYMODE="
+   "rewind"="TIME="
+   "next"="PLAY=NEXT"
+   "previous"="PLAY=LAST"
+   "pause"="PP"
+   "volumeUP"="VOL+1"
+   "volumeDW"="VOL-1"
+   "playfile"="PLAYFILE="
+   "playfileX"="PLAYFILE="
+   "amplifier"="AMP="
+   "prompt"="PROMPT="
+   "led"="LED="
+   "volume"="VOL="
+   "reset"="R"
+   "status"="QUERY=1"
+   "filetime"="QUERY=4"
+   "playtime"="QUERY=3"
+   "filename"="QUERY=5"
+   "files"="QUERY=2"
+}
+
+
+#----------------------------------------------------------------------------
+# main function`s code
+# ---------------------------------------------------------------------------
+
+:if ([:len $1]=0) do={:return "Error: no set name command"}
+
+   :if ($1="list") do={
+      :log info ""; :put ""; :log warning "<---- List commands DF Player: ---->"
+          :foreach k,v in=$ArrayComDFP do={:log info $k; :put $k}
+      :log info ""; :put "";
+  :return []}
+
+   :if ($1="mp3type") do={:return $ModuleType}
+
+:if ($1="verify") do={:set DFcmdPrefix}
+
+   :local cmd ($ArrayComDFP->$1)
+    :if ([:len $cmd]=0) do={:return "Error: bad command"}
+               :put "Execute command DF MP3 Player: $1 $2 $3"
+               :log warning "Execute command DF MP3 Player: $1 $2 $3"
+
+:if ($1="reset") do={
+   :do {
+     /interface ppp-client remove $PppclientName
+     } on-error={}
+    :global fSMP; :return [$fSMP verify]
+     }
+
+      :if (([:len $2]>0) && ([:len $3]=0)) do={} else={
+      :if ([:len $2]>0) do={
+           :if ([:len $2]=1) do={:set $2 ("0"."$2")}
+       :set $2 ("/"."$2")}
+      :if ([:len $3]>0) do={
+           :if ([:len $3]=1) do={:set $3 ("00"."$3")}
+           :if ([:len $3]=2) do={:set $3 ("0"."$3")}
+       :set $3 ("/"."$3")}
+      }
+
+   :if ($1="playfile") do={:set $3 ("$3".".mp3")}
+      :set $cmd ("$cmd"."$2"."$3")
+
+      :if ([:len [/interface ppp-client find name=$PppclientName]]=0) do={
+     /interface ppp-client add name=$PppclientName dial-on-demand=no port=$SMPport null-modem=yes disabled=yes
+     :delay 1s
+     }
+
+     :local DFanswer [/interface ppp-client at-chat $PppclientName input=("$DFcmdPrefix"."$cmd"."$DFcmdPostfix") as-value]
+
+   :if ($consoleFlagOff) do={
+   :do {/system console set [/system console find port=$SMPport] disable=no} on-error={}
+     }
+   :return $DFanswer
+ }
