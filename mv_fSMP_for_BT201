@@ -1,0 +1,165 @@
+#!rsc by RouterOS
+# RouterOS script: mv_fSMP
+# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>
+# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE
+#
+# The ROS version is required to be at least version 6.43
+#
+# playback function for BT201 Shenzhen Qingyue Electronics mp3 player
+#
+
+
+:global fSMP do={
+ 
+# ----------------------------------------
+:local ModuleType "BT201"
+:local portTypeSerial "serial"
+:local portTypeUSB "usb"
+#-----------------------------------------
+:global serialModuleType $ModuleType
+:local portUSB;
+:local portSerial
+:local BaudRate 115200
+:local DataBits 8
+:local Parity none
+:local StopBits 1
+:local FlowControl none
+:local PppclientName $ModuleType
+:local BT201cmdPrefix "AT+"
+:local BT201cmdPostfix "\r\n"
+
+:global SMPport
+:local NewPort
+:local NowPort $SMPport
+
+    :foreach portId in=[/port find name~$portTypeUSB !inactive] do={:set portUSB ([/port get $portId]->"name")}
+    :foreach portId in=[/port find name~$portTypeSerial used-by="" !inactive] do={:set portSerial ([/port get $portId]->"name")}
+  
+    :set NewPort $portUSB
+               :if ([:len $NewPort]=0) do={:set NewPort $portSerial}
+
+    :if (([:len $NewPort]=0) or ([:len [/port find name=$NewPort]]=0)) do={:return "Error: Not find port for BT201 module, port inactive or busy. Please, check /port"}
+
+   :if (($NowPort!=$NewPort) and ([/port find name=$NowPort and inactive=yes])) do={:set SMPport $NewPort} else={:set SMPport $NowPort}
+   :if ([:len $SMPport]=0) do={:set $SMPport $NewPort}
+  
+   :local gpio
+   :do {:set gpio [/system routerboard settings get gpio]} on-error={}
+
+  :local consoleFlagOff false
+        if ([:len [/system console find port=$SMPport and !disabled]]>0) do={
+                :set consoleFlagOff true
+                /system console set [/system console find port=$SMPport] disable=yes
+        }
+
+   :if (($SMPport~$portTypeSerial) and ([:len $gpio]=0)) do={
+      :put "";
+      :put "ERROR: not set GPIO-pins to $SMPport port."
+      :put "execute commands: /system routerboard settings set gpio=$SMPport"
+      :put "                  /system reboot"
+      :return "Error not set gpio serial. Function $0 d`not work"
+   }
+
+    do {
+             /port set [/port find name=$SMPport] baud-rate=$BaudRate data-bits=$DataBits parity=$Parity stop-bits=$StopBits flow-control=$FlowControl
+          } on-error={:return "Error set port $SMPport. Function $0 d`not work"} 
+
+
+:local ArrayComBMP {
+   "verify"="AT"
+   "TF"="CM03"
+   "SD"="CM02"
+   "play"="AA01"
+   "playnum"="AB"
+   "pause"="AA02"
+   "prompt"="CN"
+   "stop"="AA00"
+   "next"="CC"
+   "previous"="CD"
+   "volumeUP"="CE"
+   "volumeDW"="CF"
+   "reset"="CZ"
+   "playfile"="AJ"
+   "volume"="CA"
+   "playcycle"="AF"
+   "playmode"="MC"
+   "status"="MP"
+   "filetime"="MT"
+   "playtime"="MK"
+   "filename"="MF"
+   "device"="MD"
+   "files"="M2"
+}
+
+
+#----------------------------------------------------------------------------
+# main function`s code
+# ---------------------------------------------------------------------------
+
+
+:if ([:len $1]=0) do={:return "Error: no set name command"}
+
+   :if ($1="list") do={
+      :log info ""; :put ""; :log warning "<---- List commands BT201 Player: ---->"
+          :foreach k,v in=$ArrayComBMP do={:log info $k; :put $k}
+      :log info ""; :put "";
+  :return []}
+
+   :if ($1="mp3type") do={:return $ModuleType}
+
+   :local cmd ($ArrayComBMP->$1)
+    :if ([:len $cmd]=0) do={:return "Error: bad command"}
+               :put "Execute command BT201 MP3 Player: $1 $2 $3"
+               :log warning "Execute command BT201 MP3 Player: $1 $2 $3"
+
+  :if ($cmd="AT") do={:set BT201cmdPrefix}
+
+  :if ($1="prompt") do={
+     :if ($2="ON") do={:set $cmd ("$cmd"."01")}
+     :if ($2="OFF") do={:set $cmd ("$cmd"."00")}
+            }
+
+      :if ($cmd!="AB") do={
+      :if ([:len $2]>0) do={
+           :if ([:len $2]=1) do={:set $2 ("0"."$2")}
+       :set $2 ("/"."$2")}
+      :if ([:len $3]>0) do={
+           :if ([:len $3]=1) do={:set $3 ("00"."$3")}
+           :if ([:len $3]=2) do={:set $3 ("0"."$3")}
+       :set $3 ("/"."$3*".".\?\?\?")}
+      } 
+      :set $cmd ("$cmd"."$2"."$3")
+
+ :if ($1="reset") do={
+      :do {
+     /interface ppp-client remove $PppclientName
+     } on-error={}
+     }
+
+     :if ([:len [/interface ppp-client find name=$PppclientName]]=0) do={
+     /interface ppp-client add name=$PppclientName dial-on-demand=no port=$SMPport null-modem=yes disabled=yes
+     :delay 1s
+     }
+
+     :local BT201answer [/interface ppp-client at-chat $PppclientName input=("$BT201cmdPrefix"."$cmd"."$BT201cmdPostfix") as-value]
+
+ :if ($1="reset") do={
+          :delay 2s
+          /interface ppp-client at-chat $PppclientName input=("$BT201cmdPrefix"."CM03"."$BT201cmdPostfix")
+         :delay 3s
+         /interface ppp-client at-chat $PppclientName input=("$BT201cmdPrefix"."AJ"."$BT201cmdPostfix")
+          :global fSMP; :return [$fSMP verify]
+              }
+
+ :if (($1="TF") or ($1="SD")) do={
+         /interface ppp-client at-chat $PppclientName input=("$BT201cmdPrefix"."AJ"."$BT201cmdPostfix")
+              }                  
+
+   :if ($consoleFlagOff) do={
+   :do {/system console set [/system console find port=$SMPport] disable=no} on-error={}
+     }
+
+   :return $BT201answer
+}
+
+$fSMP reset
