@@ -1,0 +1,425 @@
+#!rsc by RouterOS
+# RouterOS script: mv_fVoice
+# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>
+# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE
+#
+# The ROS version is required to be at least version 6.43
+#
+# Universal network event voiceover function for mp3 Catalex YX5300/6300, DF Player Pro and BT201
+#
+
+
+:global fVoice do={
+
+  :global SMPport
+  :global VoiceFlag
+  :global VoiceFolder 2; # default RUS
+  :local fFL7Lang "MikroVoiceLang"
+  :local MVLang
+  :local LangRUS 2; #RUS=folder2
+  :local LangENG 3; #ENG=folder3
+  :local LangCNR 4; #CNR=folder4
+  :global fSMP
+  :local SMPflag true
+
+  :do {
+     :if (!any $fSMP) do={:global fSMP; /system script run mv_fSMP}; 
+         } on-error={:set SMPflag false}
+
+
+   :if (!$SMPflag) do={:return "Error: no SMP function"}
+   
+      :if ([:len [/ip firewall layer7-protocol find name=$fFL7Lang]]!=0) do={
+                :set MVLang [/ip firewall layer7-protocol get [find name=$fFL7Lang] regexp]
+                    :if (($MVLang="RUS") or ($MVLang="ENG") or ($MVLang="CNR")) do={
+                    :if ($MVLang="RUS") do={set VoiceFolder $LangRUS}
+                    :if ($MVLang="ENG") do={:set VoiceFolder $LangENG}
+                    :if ($MVLang="CNR") do={:set VoiceFolder $LangCNR} 
+    }
+  } 
+
+   :if (([:typeof $2]="str") and (($2="ENG") or ($2="RUS") or ($2="CNR"))) do={
+         :if ($2="RUS") do={:set VoiceFolder $LangRUS}
+         :if ($2="ENG") do={:set VoiceFolder $LangENG}
+         :if ($2="CNR") do={:set VoiceFolder $LangCNR} 
+     }
+
+:local AlertVoice do={
+ :global VoiceFolder
+ :global VoiceFlag
+ :global fSMP
+  :local alertJingle 114
+  :local importantJingle 113
+  :local currentJingle 112
+:if ([:len $1]=1) do={:set $1 [:tonum $1]}
+:if (($VoiceFlag>0) or ([:len $1]=1)) do={
+  :if (($VoiceFlag=1) or ($1=1)) do={
+       :do {
+               [$fSMP playfile $VoiceFolder $currentJingle]
+                } on-error={:return "Error $0 function call MikroVoice module function fSMP"}
+               :delay 5s
+              }
+  :if (($VoiceFlag=2) or ($1=2)) do={
+       :do {
+               [$fSMP playfile $VoiceFolder $importantJingle]
+                } on-error={:return "Error $0 function call MikroVoice module function fSMP"}
+              :delay 5s
+              }
+  :if (($VoiceFlag=3) or ($1=3)) do={
+       :do {
+               [$fSMP playfile $VoiceFolder $alertJingle]
+                } on-error={:return "Error $0 function call MikroVoice module function fSMP"}
+              :delay 5s
+              }
+   } else={
+# добавление опции проигрывания джингла с предалармом 5сек (в local AlertVoice)
+       :do {  :global fAlarm
+              :if ([$fAlarm find $1]=true) do={[$fAlarm $1]; :delay 5s; [$fSMP stop]
+              }
+   }
+}
+:return []}
+
+local ArrayComVoice {
+hellolong=1
+inform=2
+start=3
+reboot=4
+hello=5
+startset=6
+inetcheck=7
+wanmain=8
+wanreserve=9
+inetok=10
+inetno=11
+inetblock=12
+inetrestore=13
+waitreboot=14
+rebooting=15
+shutdown=16
+firewalloff=17
+firewallon=18
+rosavaliable=19
+vpnenable=20
+vpndisable=21
+vpnconnect=22
+vpndisconnect=23
+"wifi+"=24
+wifion=25
+"wifi-"=26
+wifioff=27
+questwifion=28
+guestwifioff=29
+"lte+"=30
+lteon=31
+"lte-"=32
+lteoff=33
+dudeon=34
+dudeoff=35
+backup=36
+"backup_saved"=37
+"backup_saved_disk"=38
+"backup_saved_cloud"=39
+waitrestore=40
+restoreok=41
+restore=42
+firmware=43
+telegram=44
+healthcare=45
+smssend=46
+smsin=47
+mailsend=48
+inetnot=49
+switchmain=50
+switchreserve=51
+"dhcp_client+"=52
+"dhcp_client-"=53
+dhcpoff=54
+dhcpon=55
+console=56
+badlogin=57
+admin=58
+"change_password"=61
+"change_password_ok"=62
+gpson=63
+gpsoff=64
+usbreset=65
+attack=66
+attackfix=67
+addressblock=68
+displeyoff=69
+displeyon=70
+ftpon=71
+ftpoff=72
+telneton=73
+telnetoff=74
+sambaon=75
+sambaoff=76
+sshon=77
+sshoff=78
+modbuson=79
+modbusoff=80
+snmpon=81
+snmpoff=82
+pingno=83
+pingok=84
+romonon=85
+romonoff=86
+radiuson=87
+radiusoff=88
+portblocked=89
+logclear=90
+servicelog=91
+dhcpclient=92
+gatewayok=93
+gatewayno=94
+powerdown=95
+"power_reserve"=96
+powerup=97
+greeting=98
+copiright=99
+100=100
+checkwork=101
+ntpok=102
+ntpno=103
+timedatenoset=104
+timedatewrong=105
+ntpcloud=106
+timedateset=107
+timedateupdate=108
+read=109
+write=110
+admininform=111
+accident=112
+important=113
+current=114
+"voice_active"=115
+rus=116
+eng=117
+cnr=118
+"newDHCP"=119
+"newUserDHCP"=120
+"userDHCPblocked"=121
+"userWIFIblocked"=122
+addroute=123
+addmarkroute=124
+delroute=125
+delmarkroute=126
+delinactroute=127
+firewallreset=128
+firewallinactreset=129
+addscript=130
+delscript=131
+addsched=132
+actsched=133
+delsched=134
+addadrlist=135
+addaddress=136
+deladdress=137
+addintlist=138
+"VPNinactreconnect"=139
+"LTEinactreconnect"=140
+"PPPinactreconnect"=141
+"VPNreset"=142
+sslclient=143
+sslserver=144
+password=145
+modeminit=146
+waitmodem=147
+celupdate=148
+ati=149
+cregok=150
+cregno=151
+modemreset=152
+rssiok=153
+rssilow=154
+speedhigh=155
+speedlow=156
+"modem_inetok"=157
+"modem_inetno"=158
+"firmware_lte"=159
+"firmware_lte_ok"=160
+"firmware_lte_error"=161
+usbconnect=162
+usbnas=163
+usbdisk=164
+usblan=165
+usbmodem=166
+usbserial=167
+usbno=168
+usbbusy=169
+usbinactive=170
+mainofficeno=171
+mainofficeok=172
+filialno=173
+filialok=174
+vpnmain=175
+vpnreserve=176
+vpnmainno=177
+vpnreserveok=178
+vpnclientno=179
+vpnclientok=180
+vpnunstable=181
+speedvpnhigh=182
+speedvpnmiddle=183
+speedvpnlow=184
+fetchint=185
+fetchintans=186
+fetchext=187
+fetchextans=188
+cpu90=189
+cpu100=190
+cpuload=191
+import=192
+inkey=193
+"enter_login"=194
+"enter_password"=195
+"enter_key"=196
+"enter_yn"=197
+wifitimerange=198
+inettimerange=199
+block=200
+unblock=201
+tesendactive=202
+tesendlogin=203
+tesend=204
+wifistop=205
+wifistart=206
+wifirun=207
+wifiactive=208
+wificonnect=209
+wifiout=210
+wificome=211
+wifishutdown=212
+wifilimit=213
+ltelimit=214
+delfiles=215
+mikrotik=216
+forum=217
+forumrus=218
+sertik=219
+voicetimerun=220
+h00=221
+h01=222
+h02=223
+h03=224
+h04=225
+h05=226
+h06=227
+h07=228
+h08=229
+h09=230
+h10=231
+h11=232
+h12=233
+h13=234
+h14=235
+h15=236
+h16=237
+h17=238
+h18=239
+h19=240
+h20=241
+h21=242
+h22=243
+h23=244
+voicetimestop=245
+}
+
+#----------------------------------------------------------------------------
+# main function`s code
+# ---------------------------------------------------------------------------
+
+
+:if ([:len $1]=0) do={:return "Error: no set name command/name jingle"}
+
+   :if ($1="list") do={
+      :put ""; :put "<---- List $0 jingles name in function ---->"
+          :foreach k,v in=$ArrayComVoice do={
+      :if ([:len $2]>0) do={\
+          :if ([:len [:find $k $2]]>0) do={:put $k}\
+         } else={:put $k}
+     }
+      :put "";
+  :return []}
+
+:if ($1="\6C\69\73\74\65\78\74") do={
+      :put ""; :put "<---- List $0 jingles num in folder $VoiceFolder TF-card and name in function ---->"
+   :local Lfind [:toarray ""]
+          :foreach k,v in=$ArrayComVoice do={
+   :if ([:len $2]>0) do={\
+          :if ([:len [:find $k $2]]>0) do={:put ("$v"." - "."$k"); :set Lfind ($Lfind,"$k=$v")}\
+         } else={:put ("$v"." - "."$k")}
+     }
+      :put "";
+ :if ([:len $2]>0) do={:return $Lfind} else={:return $ArrayComVoice}
+}
+
+ :if ($1="find") do={
+     :if ([:len ($ArrayComVoice->$2)]>0) do={:return true} else={:return false}
+     }
+
+    :local SMPanswer
+
+  :if ($1="stop") do={
+   :do {
+        :set SMPanswer [$fSMP mp3type]
+           :if ($SMPanswer="DFPlayer") do={:return "mp3 module is not supported"}
+        :set SMPanswer [$fSMP stop]
+            } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+}
+
+  :if ($1="pause") do={
+   :do {
+        :set SMPanswer [$fSMP mp3type]
+           :if ($SMPanswer="DFPlayer") do={:return "mp3 module is not supported"}
+        :set SMPanswer [$fSMP pause]
+            } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+}
+
+ :if ($1="playback") do={
+   :do {
+        :set SMPanswer [$fSMP mp3type]
+           :if ($SMPanswer="DFPlayer") do={:return "mp3 module is not supported"}
+        :set SMPanswer [$fSMP play]
+            } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+}
+
+  :if ($1="lang") do={
+      :if (($2="RUS") or ($2="ENG") or ($2=CNR)) do={ 
+      :if ([:len [/ip firewall layer7-protocol find name=$fFL7Lang]]=0) do={
+            /ip firewall layer7-protocol add name=$fFL7Lang regexp=$2 \
+        } else={\
+            :if ($2!=[/ip firewall layer7 get [find name=$fFL7Lang] regexp]) do={
+                          /ip firewall layer7-protocol set [find name=$fFL7Lang] regexp=$2}
+             :return "Done. Select MikroVoice language $2"}
+} else={:return "ERROR select language $2"}
+}
+
+:local VoiceNum; :do {:set VoiceNum [:tonum $1]} on-error={}
+               :local JingleNum
+               :local cmd
+
+:if ([:typeof $VoiceNum]="num") do={
+
+     :foreach k,v in=$ArrayComVoice do={:if ($v=$VoiceNum) do={:set cmd $k; set JingleNum $v}}
+     :if ([:len $cmd]=0) do={:return "Error: jingle number mismatch $0"}
+               :do {$AlertVoice $3} on-error={}
+               :put ("Play jingle"." $cmd". " < $JingleNum >"." in bibliojinglesfolder $VoiceFolder")
+               :log warning ("Play jingle"." $cmd". " < $JingleNum >"." in bibliojinglesfolder $VoiceFolder")
+               :do {
+               :set SMPanswer [$fSMP playfile $VoiceFolder $VoiceNum]
+                } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+                    } else={
+
+   :set cmd ($ArrayComVoice->$1)
+    :if ([:len $cmd]=0) do={:return "Error: bad command/name jingle"}
+               :do {$AlertVoice $3} on-error={}
+               :put "Play jingle $1 in bibliojinglesfolder $VoiceFolder"
+               :log warning "Play jingle $1 in bibliojinglesfolder $VoiceFolder"
+               :do {
+               :set SMPanswer [$fSMP playfile $VoiceFolder $cmd]
+                } on-error={:return "Error $0 function call MikroVoice module function SMP"}
+   }
+  :return $SMPanswer
+}
