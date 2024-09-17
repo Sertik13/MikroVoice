@@ -8,6 +8,26 @@
 # playback function for Catalex YX5300/6300 mp3 player
 #
 
+# usage:
+
+# $fSMP play - start playing
+# $fSMP pause
+# $fSMP stop
+# $fSMP next - play next track
+# $fSMP previous - play previous track
+# $fSMP volumeUP - increase volume on 1 pt
+# $fSMP volumeDW - decrease volume on 1 pt
+# $fSMP sleep - sleep mp3-module
+# $fSMP wakeup - wakeup mp3-module
+# $fSMP reset  
+# $fSMP shuffle - set random playing
+# $fSMP playfile YY XXX - play file XXX from YY folder
+# $fSMP volume NN - set volume NN (0-30)
+# $fSMP playcycle - set cycle play
+# $fSMP playfolder YY - play all files in folder YY
+# $fSMP TF - select TF-card
+
+
 :global fSMP do={
   
 # ----------------------------------------
