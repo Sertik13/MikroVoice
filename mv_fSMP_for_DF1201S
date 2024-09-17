@@ -8,6 +8,31 @@
 # playback function for DF1201S (DF Player PRO) DFRobot comp. mp3 player
 #
 
+# usage:
+
+# $fSMP verify - check correct connection and modul RX/TX 
+# $fSMP play XXX - play file number XXX 
+# $fSMP playmode X - set/return playmode
+# $fSMP rewind XX - set rewind +XX, -XX sec or rewind XX and start play file
+# $fSMP next
+# $fSMP previous
+# $fSMP pause (don`t work)
+# $fSMP volumeUP - increase volume +1 pt
+# $fSMP volumeDW - decrease volume -1 pt
+# $fSMP playfile YY XXX - play file XXX.mp3 in folder YY
+# $fSMP playfileX YY name.zzz - play file name.zzz in folder YY
+# $fSMP amplifier ON/OFF - ON/OFF amplifier
+# $fSMP prompt ON/OFF - ON/OFF prompt muzic
+# $fSMP led ON/OFF - ON/OFF led play
+# $fSMP volume XX - set volume XX (0-30)
+# $fSMP reset - reset ppp-out interface DFPlayer
+# $fSVM status - return play status
+# $fSMP filetime - return filetime
+# $fSMP playtime - return playtime
+# $fSMP filename - return name of file is playing
+# $fSMP files - return number of files on the media
+
+
 :global fSMP do={
 
 # ----------------------------------------
