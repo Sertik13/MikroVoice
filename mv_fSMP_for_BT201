@@ -8,6 +8,33 @@
 # playback function for BT201 Shenzhen Qingyue Electronics mp3 player
 #
 
+# usage:
+
+# $fSMP mp3mode - return "BT201"
+# $fSMP list - put commands list $fSMP in Terminal
+# $fSMP verify - check connect correctly (return: OK or ERR)
+# $fSMP TF - select TF-card
+# $fSMP SD - select U-disk
+# $fSMP play - pause/play
+# $fSMP playnum XXX - play file number XXX
+# $fSMP pause - play/pause
+# $fSMP prompt ON/OFF - ON/OFF prompt muzic
+# $fSMP stop
+# $fSMP next - play next file
+# $fSMP previous - play previouse file
+# $fSMP volumeUP - increase volume +1 pt
+# $fSMP volumeDW - decrease volume -1 pt
+# $fSMP reset - reset mp3 module
+# $fSMP playfile YY XXX - play file XXX.mp3 in folder YY
+# $fSMP volume XX - set volume XX (0-30)
+# $fSMP playcycle - set play cycle
+# $fSMP playmode - return playmode
+# $fSMP status - return status
+# $fSMP filetime" - return filetime
+# $fSMP playtime - returm play time now
+# $fSMP filename - return name playing file
+# $fSMP device - return TF or SD select
+# $fSMP files - return number of files on the media
 
 :global fSMP do={
  
