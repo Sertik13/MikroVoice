@@ -10,6 +10,7 @@
 
 # usage:
 
+# $fSMP list - put list $fSMP commands in terminal
 # $fSMP play - start playing
 # $fSMP pause
 # $fSMP stop
