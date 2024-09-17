@@ -10,6 +10,7 @@
 
 # usage:
 
+# $fSMP mp3mode - return "DFPlayer"
 # $fSMP verify - check correct connection and modul RX/TX 
 # $fSMP play XXX - play file number XXX 
 # $fSMP playmode X - set/return playmode
