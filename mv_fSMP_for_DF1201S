@@ -65,7 +65,7 @@
     :set NewPort $portUSB
                :if ([:len $NewPort]=0) do={:set NewPort $portSerial}
 
-    :if (([:len $NewPort]=0) or ([:len [/port find name=$NewPort]]=0)) do={:return "Error: Not find port for SMPlayer module, port inactive or busy. Please, check /port"}
+    :if (([:len $NewPort]=0) or ([:len [/port find name=$NewPort]]=0)) do={:return "Error: Not find port for DFPlayer module, port inactive or busy. Please, check /port"}
 
    :if (($NowPort!=$NewPort) and ([/port find name=$NowPort and inactive=yes])) do={:set SMPport $NewPort} else={:set SMPport $NowPort}
    :if ([:len $SMPport]=0) do={:set $SMPport $NewPort}
