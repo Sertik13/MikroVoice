@@ -1,0 +1,10 @@
+# MikroVoice download from GitHub and import
+
+:do {
+   /tool fetch url="https://github.com/Sertik13/MikroVoice/blob/main/MikroVoiceSys"
+         } on-error={:error "MikroVoice System installation file was not found on the disk or remote resource. System installation is not possible."}
+        :delay 5s
+  :do {
+       :put  ("MikroVoice system is installed in the router repository and environment ...")   
+        /import MikroVoiceSys
+       } on-error={:error "MikroVoice system unpacking error"}
