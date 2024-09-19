@@ -1452,8 +1452,8 @@ add comment="v 3.0 by Sertik 2024" dont-require-permissions=no name=\
     !rsc by RouterOS\r\
     \n# RouterOS script: mv_fMikroVoice\r\
     \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
-    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
-    \n#\r\
+    \n:local MVsysGitHub \"https://raw.githubusercontent.com/Sertik13/MikroVoice/refs/heads/main/\$\
+    MVsysName\"\r\
     \n# The ROS version is required to be at least version 6.43\r\
     \n#\r\
     \n# playback function for BT201 Shenzhen Qingyue Electronics mp3 player\r\
