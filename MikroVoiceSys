@@ -1,0 +1,1916 @@
+# sep/20/2024 11:07:33 by RouterOS 6.49.10
+# MikroVoice System for Mikrotik
+# version 3.0 multycards for GitHub by Sertik
+
+{/terminal style error
+:put ""
+:put " Setup MikroVoice System multycards for Mikrotik "
+/terminal style none}
+
+:global Chs do={
+    :local lchoices $1
+    :local isel 0
+    :if ([:len $lchoices]>0) do={:set isel 0} else={:error "error - no choices"}
+    :for uchoice from=0 to=([:len $lchoices]-1) do={
+        :if ([:typeof ($lchoices->$uchoice)]="str") do={
+            :set ($lchoices->$uchoice) {val=($lchoices->$uchoice);text=($lchoices->$uchoice)} 
+        }
+        :if ([:typeof ($lchoices->$uchoice)]="array") do={
+            :if ([:typeof ($lchoices->$uchoice->"val")]~"str|num") do={
+                :if (([:typeof ($lchoices->$uchoice->"text")]~"str|num")) do={
+                } else={
+                    :set ($lchoices->$uchoice->"text") ($lchoices->$uchoice->"val") 
+                }
+            } else={
+                :if (([:typeof ($lchoices->$uchoice->"text")]~"str|num")) do={
+                    :set ($lchoices->$uchoice->"val") ($lchoices->$uchoice->"text") 
+                } else={
+                    :set ($lchoices->$uchoice) {val="invalid$uchoice";text="$[:tostr ($lchoices->$uchoice)] [invalid$uchoice]"}  
+                }
+            }
+        } else={
+            :set ($lchoices->$uchoice) {val="invalid$uchoice";text="$[:tostr ($lchoices->$uchoice)] [invalid$uchoice]"}  
+        }
+    }
+    :if ([:typeof $selected] = "str") do={
+       :set isel [:find $lchoicesnames ] 
+    }
+    :local lkey 0
+    :local bsel ""
+    :while ($lkey != 13) do={
+        :if ($lkey != 0) do={:for icuu from=0 to=([:len $lchoices]-1) do={/terminal cuu}}
+        :for ichoice from=0 to=([:len $lchoices]-1) do={
+            :if ($isel = $ichoice) do={:set bsel "7;"} else={:set bsel ""}
+            :put "\t \1B[$($bsel)34;49m $($lchoices->$ichoice->"text") \1B[0m \t \1B[90;49m $($lchoices->$ichoice->"help") \1B[0m"
+        }
+        :set lkey [/terminal inkey]
+        :if ($lkey = 60931) do={
+            :set isel ($isel-1)
+            :if ($isel < 0) do={:set isel 0}
+        }
+        :if ($lkey = 60932) do={
+            :set isel ($isel+1)
+            :if ($isel > ([:len $lchoices]-1)) do={:set isel 0}
+        }        
+    }
+    :return ($lchoices->$isel->"val")
+}
+
+:put []
+:put " Please, select MP3 player card: "
+:put []
+
+
+:local MenuChoice [$Chs ({"Catalex YX5300"; "DFPlayer Pro"; "BT201"})]
+:put ""
+
+:if ($MenuChoice="Catalex YX5300") do={
+/system script
+add dont-require-permissions=no name=mv_fSMP owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fSMP\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# playback function for Catalex YX5300/6300 mp3 player\r\
+    \n#\r\
+    \n\r\
+    \n:global fSMP do={\r\
+    \n  \r\
+    \n# ----------------------------------------\r\
+    \n:local ModuleType \"Catalex\"\r\
+    \n:local portTypeSerial \"serial\"\r\
+    \n:local portTypeUSB \"usb\"\r\
+    \n#-----------------------------------------\r\
+    \n:global serialModuleType \$ModuleType\r\
+    \n:local portUSB;\r\
+    \n:local portSerial\r\
+    \n:local BaudRate 9600\r\
+    \n:local DataBits 8\r\
+    \n:local Parity none\r\
+    \n:local StopBits 1\r\
+    \n:local FlowControl none\r\
+    \n:local PppclientName \$ModuleType\r\
+    \n:local YX5300cmdPrefix \"\\7E\\FF\\06\"\r\
+    \n:local YX5300cmdPostfix \"\\11\\11\\11\\EF\"\r\
+    \n\r\
+    \n:do {/interface ppp-client remove [/interface ppp-client find name=\$Ppp\
+    clientName]} on-error={}\r\
+    \n\r\
+    \n:global SMPport\r\
+    \n:local NewPort\r\
+    \n:local NowPort \$SMPport; # \F1\EE\F5\F0\E0\ED\E8\F2\FC \F2\E5\EA\F3\F9\
+    \E8\E9 \EF\EE\F0\F2\r\
+    \n\r\
+    \n    :foreach portId in=[/port find name~\$portTypeUSB !inactive] do={:se\
+    t portUSB ([/port get \$portId]->\"name\")}\r\
+    \n    :foreach portId in=[/port find name~\$portTypeSerial used-by=\"\" !i\
+    nactive] do={:set portSerial ([/port get \$portId]->\"name\")}\r\
+    \n  \r\
+    \n    :set NewPort \$portUSB\r\
+    \n               :if ([:len \$NewPort]=0) do={:set NewPort \$portSerial}\r\
+    \n\r\
+    \n    :if (([:len \$NewPort]=0) or ([:len [/port find name=\$NewPort]]=0))\
+    \_do={:return \"Error: Not find port for Catalex module, port inactive or \
+    busy. Please, check /port\"}\r\
+    \n\r\
+    \n\r\
+    \n   :if ((\$NowPort!=\$NewPort) and ([/port find name=\$NowPort and inact\
+    ive=yes])) do={:set SMPport \$NewPort} else={:set SMPport \$NowPort}\r\
+    \n   :if ([:len \$SMPport]=0) do={:set \$SMPport \$NewPort}\r\
+    \n  \r\
+    \n   :local gpio\r\
+    \n   :do {:set gpio [/system routerboard settings get gpio]} on-error={}\r\
+    \n\r\
+    \n  :local consoleFlagOff false\r\
+    \n        if ([:len [/system console find port=\$SMPport and !disabled]]>0\
+    ) do={\r\
+    \n                :set consoleFlagOff true\r\
+    \n                /system console set [/system console find port=\$SMPport\
+    ] disable=yes\r\
+    \n        }\r\
+    \n\r\
+    \n   :if ((\$SMPport~\$portTypeSerial) and ([:len \$gpio]=0)) do={\r\
+    \n      :put \"\";\r\
+    \n      :put \"ERROR: not set GPIO-pins to \$SMPport port.\"\r\
+    \n      :put \"execute commands: /system routerboard settings set gpio=\$S\
+    MPport\"\r\
+    \n      :put \"                  /system reboot\"\r\
+    \n      :return \"Error not set gpio serial. Function \$0 d`not work\"\r\
+    \n   }\r\
+    \n\r\
+    \n    do {\r\
+    \n             /port set [/port find name=\$SMPport] baud-rate=\$BaudRate \
+    data-bits=\$DataBits parity=\$Parity stop-bits=\$StopBits flow-control=\$F\
+    lowControl\r\
+    \n          } on-error={:return \"Error set port \$SMPport. Function \$0 d\
+    `not work\"}\r\
+    \n\r\
+    \n\r\
+    \n# function \$fByteToEscapeChar\r\
+    \n# Chupakabra`s JSON parser for Mikrotik\r\
+    \n# https://github.com/Winand/mikrotik-json-parser\r\
+    \n\r\
+    \n   :local fBy do={\r\
+    \n         :set \$1 [:tonum \$1]\r\
+    \n    :return [[:parse \"(\\\"\\\\\$[:pick \"0123456789ABCDEF\" ((\$1 >> 4\
+    ) & 0xF)]\$[:pick \"0123456789ABCDEF\" (\$1 & 0xF)]\\\")\"]]\r\
+    \n  }\r\
+    \n\r\
+    \n:local ArrayComSMP {\r\
+    \n   \"play\"=\"\\0D\"\r\
+    \n   \"pause\"=\"\\0E\"\r\
+    \n   \"stop\"=\"\\16\"\r\
+    \n   \"next\"=\"\\01\"\r\
+    \n   \"previous\"=\"\\02\"\r\
+    \n   \"volumeUP\"=\"\\04\"\r\
+    \n   \"volumeDW\"=\"\\05\"\r\
+    \n   \"sleep\"=\"\\0A\"\r\
+    \n   \"wakeup\"=\"\\0B\"\r\
+    \n   \"reset\"=\"\\0C\"\r\
+    \n   \"shuffle\"=\"\\18\"\r\
+    \n   \"playfile\"=\"\\0F\\11\"\r\
+    \n   \"volume\"=\"\\06\\11\"\r\
+    \n   \"playcycle\"=\"\\08\\11\"\r\
+    \n   \"playfolder\"=\"\\17\\11\"\r\
+    \n   \"TF\"=\"09\\11\"}\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"Error: no set name command\"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :local ArrayComSMPlist\r\
+    \n      :log info \"\"; :put \"\"; :log warning \"<---- List commands Seri\
+    al MP3/Wav Catalex YX5300/6300 Player: ---->\"\r\
+    \n          :foreach k,v in=\$ArrayComSMP do={:log info \$k; :put \$k; :se\
+    t ArrayComSMPlist (\$ArrayComSMPlist, \$k)}\r\
+    \n      :log info \"\"; :put \"\";\r\
+    \n  :return \$ArrayComSMPlist}\r\
+    \n\r\
+    \n   :if (\$1=\"mp3type\") do={:return \$ModuleType}\r\
+    \n\r\
+    \n   :local cmd (\$ArrayComSMP->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command\"}\r\
+    \n               :put \"Execute command Serial MP3 Player: \$1 \$2 \$3\"\r\
+    \n               :log warning \"Execute command Serial MP3 Player: \$1 \$2\
+    \_\$3\"\r\
+    \n\r\
+    \n     :if (\$1=\"TF\") do={:set \$2 02}\r\
+    \n\r\
+    \n     :local a1 \$2; :local b1 \$3\r\
+    \n     :if ([:len \$3]=0) do={:set b1 \$2; :set a1 \"\\11\"}\r\
+    \n     :if (\$a1!=\"\\11\") do={:set a1 [\$fBy \$a1]}\r\
+    \n     :set b1 [\$fBy \$b1]\r\
+    \n\r\
+    \n      :if ([:len \$cmd]>1) do={:set YX5300cmdPostfix (\"\$a1\".\"\$b1\".\
+    \"\\EF\")}\r\
+    \n\r\
+    \n:foreach portId in=[/port find name=\$SMPport and used-by=\"PPP <\$Pppcl\
+    ientName>\"] do={\r\
+    \n  :foreach i in=[/interface ppp-client find name=\$PppclientName] do={/i\
+    nterface ppp-client remove \$i}\r\
+    \n }\r\
+    \n\r\
+    \n     /interface ppp-client add name=\$PppclientName dial-on-demand=no po\
+    rt=\$SMPport modem-init=(\"\$YX5300cmdPrefix\".\"\$cmd\".\"\$YX5300cmdPost\
+    fix\") null-modem=yes disabled=no\r\
+    \n     :delay 1s\r\
+    \n     /interface ppp-client remove [/interface ppp-client find name=\$Ppp\
+    clientName]\r\
+    \n\r\
+    \n   :if (\$consoleFlagOff) do={\r\
+    \n   :do {/system console set [/system console find port=\$SMPport] disabl\
+    e=no} on-error={}\r\
+    \n     }\r\
+    \n   :return OK\r\
+    \n}"
+	}
+	:if ($MenuChoice="BT201") do={
+/system script
+add dont-require-permissions=no name=mv_fSMP owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fSMP\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# playback function for BT201 Shenzhen Qingyue Electronics mp3 player\r\
+    \n#\r\
+    \n\r\
+    \n\r\
+    \n:global fSMP do={\r\
+    \n \r\
+    \n# ----------------------------------------\r\
+    \n:local ModuleType \"BT201\"\r\
+    \n:local portTypeSerial \"serial\"\r\
+    \n:local portTypeUSB \"usb\"\r\
+    \n#-----------------------------------------\r\
+    \n:global serialModuleType \$ModuleType\r\
+    \n:local portUSB;\r\
+    \n:local portSerial\r\
+    \n:local BaudRate 115200\r\
+    \n:local DataBits 8\r\
+    \n:local Parity none\r\
+    \n:local StopBits 1\r\
+    \n:local FlowControl none\r\
+    \n:local PppclientName \$ModuleType\r\
+    \n:local BT201cmdPrefix \"AT+\"\r\
+    \n:local BT201cmdPostfix \"\\r\\n\"\r\
+    \n\r\
+    \n:global SMPport\r\
+    \n:local NewPort\r\
+    \n:local NowPort \$SMPport\r\
+    \n\r\
+    \n    :foreach portId in=[/port find name~\$portTypeUSB !inactive] do={:se\
+    t portUSB ([/port get \$portId]->\"name\")}\r\
+    \n    :foreach portId in=[/port find name~\$portTypeSerial used-by=\"\" !i\
+    nactive] do={:set portSerial ([/port get \$portId]->\"name\")}\r\
+    \n  \r\
+    \n    :set NewPort \$portUSB\r\
+    \n               :if ([:len \$NewPort]=0) do={:set NewPort \$portSerial}\r\
+    \n\r\
+    \n    :if (([:len \$NewPort]=0) or ([:len [/port find name=\$NewPort]]=0))\
+    \_do={:return \"Error: Not find port for BT201 module, port inactive or bu\
+    sy. Please, check /port\"}\r\
+    \n\r\
+    \n   :if ((\$NowPort!=\$NewPort) and ([/port find name=\$NowPort and inact\
+    ive=yes])) do={:set SMPport \$NewPort} else={:set SMPport \$NowPort}\r\
+    \n   :if ([:len \$SMPport]=0) do={:set \$SMPport \$NewPort}\r\
+    \n  \r\
+    \n   :local gpio\r\
+    \n   :do {:set gpio [/system routerboard settings get gpio]} on-error={}\r\
+    \n\r\
+    \n  :local consoleFlagOff false\r\
+    \n        if ([:len [/system console find port=\$SMPport and !disabled]]>0\
+    ) do={\r\
+    \n                :set consoleFlagOff true\r\
+    \n                /system console set [/system console find port=\$SMPport\
+    ] disable=yes\r\
+    \n        }\r\
+    \n\r\
+    \n   :if ((\$SMPport~\$portTypeSerial) and ([:len \$gpio]=0)) do={\r\
+    \n      :put \"\";\r\
+    \n      :put \"ERROR: not set GPIO-pins to \$SMPport port.\"\r\
+    \n      :put \"execute commands: /system routerboard settings set gpio=\$S\
+    MPport\"\r\
+    \n      :put \"                  /system reboot\"\r\
+    \n      :return \"Error not set gpio serial. Function \$0 d`not work\"\r\
+    \n   }\r\
+    \n\r\
+    \n    do {\r\
+    \n             /port set [/port find name=\$SMPport] baud-rate=\$BaudRate \
+    data-bits=\$DataBits parity=\$Parity stop-bits=\$StopBits flow-control=\$F\
+    lowControl\r\
+    \n          } on-error={:return \"Error set port \$SMPport. Function \$0 d\
+    `not work\"} \r\
+    \n\r\
+    \n\r\
+    \n:local ArrayComBMP {\r\
+    \n   \"verify\"=\"AT\"\r\
+    \n   \"TF\"=\"CM03\"\r\
+    \n   \"SD\"=\"CM02\"\r\
+    \n   \"play\"=\"AA01\"\r\
+    \n   \"playnum\"=\"AB\"\r\
+    \n   \"pause\"=\"AA02\"\r\
+    \n   \"prompt\"=\"CN\"\r\
+    \n   \"stop\"=\"AA00\"\r\
+    \n   \"next\"=\"CC\"\r\
+    \n   \"previous\"=\"CD\"\r\
+    \n   \"volumeUP\"=\"CE\"\r\
+    \n   \"volumeDW\"=\"CF\"\r\
+    \n   \"reset\"=\"CZ\"\r\
+    \n   \"playfile\"=\"AJ\"\r\
+    \n   \"volume\"=\"CA\"\r\
+    \n   \"playcycle\"=\"AF\"\r\
+    \n   \"playmode\"=\"MC\"\r\
+    \n   \"status\"=\"MP\"\r\
+    \n   \"filetime\"=\"MT\"\r\
+    \n   \"playtime\"=\"MK\"\r\
+    \n   \"filename\"=\"MF\"\r\
+    \n   \"device\"=\"MD\"\r\
+    \n   \"files\"=\"M2\"\r\
+    \n}\r\
+    \n\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"Error: no set name command\"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :log info \"\"; :put \"\"; :log warning \"<---- List commands BT20\
+    1 Player: ---->\"\r\
+    \n          :foreach k,v in=\$ArrayComBMP do={:log info \$k; :put \$k}\r\
+    \n      :log info \"\"; :put \"\";\r\
+    \n  :return []}\r\
+    \n\r\
+    \n   :if (\$1=\"mp3type\") do={:return \$ModuleType}\r\
+    \n\r\
+    \n   :local cmd (\$ArrayComBMP->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command\"}\r\
+    \n               :put \"Execute command BT201 MP3 Player: \$1 \$2 \$3\"\r\
+    \n               :log warning \"Execute command BT201 MP3 Player: \$1 \$2 \
+    \$3\"\r\
+    \n\r\
+    \n  :if (\$cmd=\"AT\") do={:set BT201cmdPrefix}\r\
+    \n\r\
+    \n  :if (\$1=\"prompt\") do={\r\
+    \n     :if (\$2=\"ON\") do={:set \$cmd (\"\$cmd\".\"01\")}\r\
+    \n     :if (\$2=\"OFF\") do={:set \$cmd (\"\$cmd\".\"00\")}\r\
+    \n            }\r\
+    \n\r\
+    \n      :if (\$cmd!=\"AB\") do={\r\
+    \n      :if ([:len \$2]>0) do={\r\
+    \n           :if ([:len \$2]=1) do={:set \$2 (\"0\".\"\$2\")}\r\
+    \n       :set \$2 (\"/\".\"\$2\")}\r\
+    \n      :if ([:len \$3]>0) do={\r\
+    \n           :if ([:len \$3]=1) do={:set \$3 (\"00\".\"\$3\")}\r\
+    \n           :if ([:len \$3]=2) do={:set \$3 (\"0\".\"\$3\")}\r\
+    \n       :set \$3 (\"/\".\"\$3*\".\".\\\?\\\?\\\?\")}\r\
+    \n      } \r\
+    \n      :set \$cmd (\"\$cmd\".\"\$2\".\"\$3\")\r\
+    \n\r\
+    \n :if (\$1=\"reset\") do={\r\
+    \n      :do {\r\
+    \n     /interface ppp-client remove \$PppclientName\r\
+    \n     } on-error={}\r\
+    \n     }\r\
+    \n\r\
+    \n     :if ([:len [/interface ppp-client find name=\$PppclientName]]=0) do\
+    ={\r\
+    \n     /interface ppp-client add name=\$PppclientName dial-on-demand=no po\
+    rt=\$SMPport null-modem=yes disabled=yes\r\
+    \n     :delay 1s\r\
+    \n     }\r\
+    \n\r\
+    \n     :local BT201answer [/interface ppp-client at-chat \$PppclientName i\
+    nput=(\"\$BT201cmdPrefix\".\"\$cmd\".\"\$BT201cmdPostfix\") as-value]\r\
+    \n\r\
+    \n :if (\$1=\"reset\") do={\r\
+    \n          :delay 2s\r\
+    \n          /interface ppp-client at-chat \$PppclientName input=(\"\$BT201\
+    cmdPrefix\".\"CM03\".\"\$BT201cmdPostfix\")\r\
+    \n         :delay 3s\r\
+    \n         /interface ppp-client at-chat \$PppclientName input=(\"\$BT201c\
+    mdPrefix\".\"AJ\".\"\$BT201cmdPostfix\")\r\
+    \n          :global fSMP; :return [\$fSMP verify]\r\
+    \n              }\r\
+    \n\r\
+    \n :if ((\$1=\"TF\") or (\$1=\"SD\")) do={\r\
+    \n         /interface ppp-client at-chat \$PppclientName input=(\"\$BT201c\
+    mdPrefix\".\"AJ\".\"\$BT201cmdPostfix\")\r\
+    \n              }                  \r\
+    \n\r\
+    \n   :if (\$consoleFlagOff) do={\r\
+    \n   :do {/system console set [/system console find port=\$SMPport] disabl\
+    e=no} on-error={}\r\
+    \n     }\r\
+    \n\r\
+    \n   :return \$BT201answer\r\
+    \n}\r\
+    \n\r\
+    \n\$fSMP reset"
+	}
+	:if ($MenuChoice="DFPlayer Pro") do={
+/system script
+add dont-require-permissions=no name=mv_fSMP owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fSMP\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# playback function for DF1201S (DF Player PRO) DFRobot comp. mp3 player\
+    \r\
+    \n#\r\
+    \n\r\
+    \n:global fSMP do={\r\
+    \n\r\
+    \n# ----------------------------------------\r\
+    \n:local ModuleType \"DFPlayer\"\r\
+    \n:local portTypeSerial \"serial\"\r\
+    \n:local portTypeUSB \"usb\"\r\
+    \n#-----------------------------------------\r\
+    \n:global serialModuleType \$ModuleType\r\
+    \n:local portUSB;\r\
+    \n:local portSerial\r\
+    \n:local BaudRate 115200\r\
+    \n:local DataBits 8\r\
+    \n:local Parity none\r\
+    \n:local StopBits 1\r\
+    \n:local FlowControl none\r\
+    \n:local PppclientName \$ModuleType\r\
+    \n:local DFcmdPrefix \"AT+\"\r\
+    \n:local DFcmdPostfix \"\\r\\n\"\r\
+    \n\r\
+    \n\r\
+    \n\r\
+    \n:global SMPport\r\
+    \n:local NewPort\r\
+    \n:local NowPort \$SMPport; # \F1\EE\F5\F0\E0\ED\E8\F2\FC \F2\E5\EA\F3\F9\
+    \E8\E9 \EF\EE\F0\F2\r\
+    \n\r\
+    \n    :foreach portId in=[/port find name~\$portTypeUSB !inactive] do={:se\
+    t portUSB ([/port get \$portId]->\"name\")}\r\
+    \n    :foreach portId in=[/port find name~\$portTypeSerial used-by=\"\" !i\
+    nactive] do={:set portSerial ([/port get \$portId]->\"name\")}\r\
+    \n  \r\
+    \n    :set NewPort \$portUSB\r\
+    \n               :if ([:len \$NewPort]=0) do={:set NewPort \$portSerial}\r\
+    \n\r\
+    \n    :if (([:len \$NewPort]=0) or ([:len [/port find name=\$NewPort]]=0))\
+    \_do={:return \"Error: Not find port for DFPlayer module, port inactive or\
+    \_busy. Please, check /port\"}\r\
+    \n\r\
+    \n   :if ((\$NowPort!=\$NewPort) and ([/port find name=\$NowPort and inact\
+    ive=yes])) do={:set SMPport \$NewPort} else={:set SMPport \$NowPort}\r\
+    \n   :if ([:len \$SMPport]=0) do={:set \$SMPport \$NewPort}\r\
+    \n  \r\
+    \n   :local gpio\r\
+    \n   :do {:set gpio [/system routerboard settings get gpio]} on-error={}\r\
+    \n\r\
+    \n  :local consoleFlagOff false\r\
+    \n        if ([:len [/system console find port=\$SMPport and !disabled]]>0\
+    ) do={\r\
+    \n                :set consoleFlagOff true\r\
+    \n                /system console set [/system console find port=\$SMPport\
+    ] disable=yes\r\
+    \n        }\r\
+    \n\r\
+    \n   :if ((\$SMPport~\$portTypeSerial) and ([:len \$gpio]=0)) do={\r\
+    \n      :put \"\";\r\
+    \n      :put \"ERROR: not set GPIO-pins to \$SMPport port.\"\r\
+    \n      :put \"execute commands: /system routerboard settings set gpio=\$S\
+    MPport\"\r\
+    \n      :put \"                  /system reboot\"\r\
+    \n      :return \"Error not set gpio serial. Function \$0 d`not work\"\r\
+    \n   }\r\
+    \n\r\
+    \n    do {\r\
+    \n             /port set [/port find name=\$SMPport] baud-rate=\$BaudRate \
+    data-bits=\$DataBits parity=\$Parity stop-bits=\$StopBits flow-control=\$F\
+    lowControl\r\
+    \n          } on-error={:return \"Error set port \$SMPport. Function \$0 d\
+    `not work\"}\r\
+    \n\r\
+    \n:local ArrayComDFP {\r\
+    \n   \"verify\"=\"AT\"\r\
+    \n   \"play\"=\"PLAYNUM=\"\r\
+    \n   \"playmode\"=\"PLAYMODE=\"\r\
+    \n   \"rewind\"=\"TIME=\"\r\
+    \n   \"next\"=\"PLAY=NEXT\"\r\
+    \n   \"previous\"=\"PLAY=LAST\"\r\
+    \n   \"pause\"=\"PP\"\r\
+    \n   \"volumeUP\"=\"VOL+1\"\r\
+    \n   \"volumeDW\"=\"VOL-1\"\r\
+    \n   \"playfile\"=\"PLAYFILE=\"\r\
+    \n   \"playfileX\"=\"PLAYFILE=\"\r\
+    \n   \"amplifier\"=\"AMP=\"\r\
+    \n   \"prompt\"=\"PROMPT=\"\r\
+    \n   \"led\"=\"LED=\"\r\
+    \n   \"volume\"=\"VOL=\"\r\
+    \n   \"reset\"=\"R\"\r\
+    \n   \"status\"=\"QUERY=1\"\r\
+    \n   \"filetime\"=\"QUERY=4\"\r\
+    \n   \"playtime\"=\"QUERY=3\"\r\
+    \n   \"filename\"=\"QUERY=5\"\r\
+    \n   \"files\"=\"QUERY=2\"\r\
+    \n}\r\
+    \n\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"Error: no set name command\"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :log info \"\"; :put \"\"; :log warning \"<---- List commands DF P\
+    layer: ---->\"\r\
+    \n          :foreach k,v in=\$ArrayComDFP do={:log info \$k; :put \$k}\r\
+    \n      :log info \"\"; :put \"\";\r\
+    \n  :return []}\r\
+    \n\r\
+    \n   :if (\$1=\"mp3type\") do={:return \$ModuleType}\r\
+    \n\r\
+    \n:if (\$1=\"verify\") do={:set DFcmdPrefix}\r\
+    \n\r\
+    \n   :local cmd (\$ArrayComDFP->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command\"}\r\
+    \n               :put \"Execute command DF MP3 Player: \$1 \$2 \$3\"\r\
+    \n               :log warning \"Execute command DF MP3 Player: \$1 \$2 \$3\
+    \"\r\
+    \n\r\
+    \n:if (\$1=\"reset\") do={\r\
+    \n   :do {\r\
+    \n     /interface ppp-client remove \$PppclientName\r\
+    \n     } on-error={}\r\
+    \n    :global fSMP; :return [\$fSMP verify]\r\
+    \n     }\r\
+    \n\r\
+    \n      :if (([:len \$2]>0) && ([:len \$3]=0)) do={} else={\r\
+    \n      :if ([:len \$2]>0) do={\r\
+    \n           :if ([:len \$2]=1) do={:set \$2 (\"0\".\"\$2\")}\r\
+    \n       :set \$2 (\"/\".\"\$2\")}\r\
+    \n      :if ([:len \$3]>0) do={\r\
+    \n           :if ([:len \$3]=1) do={:set \$3 (\"00\".\"\$3\")}\r\
+    \n           :if ([:len \$3]=2) do={:set \$3 (\"0\".\"\$3\")}\r\
+    \n       :set \$3 (\"/\".\"\$3\")}\r\
+    \n      }\r\
+    \n\r\
+    \n   :if (\$1=\"playfile\") do={:set \$3 (\"\$3\".\".mp3\")}\r\
+    \n      :set \$cmd (\"\$cmd\".\"\$2\".\"\$3\")\r\
+    \n\r\
+    \n      :if ([:len [/interface ppp-client find name=\$PppclientName]]=0) d\
+    o={\r\
+    \n     /interface ppp-client add name=\$PppclientName dial-on-demand=no po\
+    rt=\$SMPport null-modem=yes disabled=yes\r\
+    \n     :delay 1s\r\
+    \n     }\r\
+    \n\r\
+    \n     :local DFanswer [/interface ppp-client at-chat \$PppclientName inpu\
+    t=(\"\$DFcmdPrefix\".\"\$cmd\".\"\$DFcmdPostfix\") as-value]\r\
+    \n\r\
+    \n   :if (\$consoleFlagOff) do={\r\
+    \n   :do {/system console set [/system console find port=\$SMPport] disabl\
+    e=no} on-error={}\r\
+    \n     }\r\
+    \n   :return \$DFanswer\r\
+    \n }"
+	}
+	
+	:put []
+:put " Please, select default language for MicroVoice: "
+:put []
+
+:local LangSelect [$Chs ({{val="RUS";text="Russian"};{val="ENG";text="English"}; {val="CNR";text="Chinese"}})]
+    :if ([:len [/ip firewall layer7-protocol find name=MikroVoiceLang]]=0) do={
+            /ip firewall layer7-protocol add name=MikroVoiceLang regexp=$LangSelect \
+        } else={\
+                          /ip firewall layer7-protocol set [find name=MikroVoiceLang] regexp=$LangSelect
+   }
+:put []
+:put "Thank you for your choice. The voice announcement system will operate in $LangSelect by default"
+:set Chs
+:put []
+ 
+# start system MikroVoice
+:put ""
+:put "unpaking and start MikroVoice System... "
+:put "version 3.0 by Sertik "
+:delay 3s
+
+/system script
+add dont-require-permissions=no name=mv_fVoice owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fVoice\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# Universal network event voiceover function for mp3 Catalex YX5300/6300\
+    , DF Player Pro and BT201\r\
+    \n#\r\
+    \n\r\
+    \n\r\
+    \n:global fVoice do={\r\
+    \n\r\
+    \n  :global SMPport\r\
+    \n  :global VoiceFlag\r\
+    \n  :global VoiceFolder 2; # default RUS\r\
+    \n  :local fFL7Lang \"MikroVoiceLang\"\r\
+    \n  :local MVLang\r\
+    \n  :local LangRUS 2; #RUS=folder2\r\
+    \n  :local LangENG 3; #ENG=folder3\r\
+    \n  :local LangCNR 4; #CNR=folder4\r\
+    \n  :global fSMP\r\
+    \n  :local SMPflag true\r\
+    \n\r\
+    \n  :do {\r\
+    \n     :if (!any \$fSMP) do={:global fSMP; /system script run mv_fSMP}; \r\
+    \n         } on-error={:set SMPflag false}\r\
+    \n\r\
+    \n\r\
+    \n   :if (!\$SMPflag) do={:return \"Error: no SMP function\"}\r\
+    \n   \r\
+    \n      :if ([:len [/ip firewall layer7-protocol find name=\$fFL7Lang]]!=0\
+    ) do={\r\
+    \n                :set MVLang [/ip firewall layer7-protocol get [find name\
+    =\$fFL7Lang] regexp]\r\
+    \n                    :if ((\$MVLang=\"RUS\") or (\$MVLang=\"ENG\") or (\$\
+    MVLang=\"CNR\")) do={\r\
+    \n                    :if (\$MVLang=\"RUS\") do={set VoiceFolder \$LangRUS\
+    }\r\
+    \n                    :if (\$MVLang=\"ENG\") do={:set VoiceFolder \$LangEN\
+    G}\r\
+    \n                    :if (\$MVLang=\"CNR\") do={:set VoiceFolder \$LangCN\
+    R} \r\
+    \n    }\r\
+    \n  } \r\
+    \n\r\
+    \n   :if (([:typeof \$2]=\"str\") and ((\$2=\"ENG\") or (\$2=\"RUS\") or (\
+    \$2=\"CNR\"))) do={\r\
+    \n         :if (\$2=\"RUS\") do={:set VoiceFolder \$LangRUS}\r\
+    \n         :if (\$2=\"ENG\") do={:set VoiceFolder \$LangENG}\r\
+    \n         :if (\$2=\"CNR\") do={:set VoiceFolder \$LangCNR} \r\
+    \n     }\r\
+    \n\r\
+    \n:local AlertVoice do={\r\
+    \n :global VoiceFolder\r\
+    \n :global VoiceFlag\r\
+    \n :global fSMP\r\
+    \n  :local alertJingle 114\r\
+    \n  :local importantJingle 113\r\
+    \n  :local currentJingle 112\r\
+    \n:if ([:len \$1]=1) do={:set \$1 [:tonum \$1]}\r\
+    \n:if ((\$VoiceFlag>0) or ([:len \$1]=1)) do={\r\
+    \n  :if ((\$VoiceFlag=1) or (\$1=1)) do={\r\
+    \n       :do {\r\
+    \n               [\$fSMP playfile \$VoiceFolder \$currentJingle]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function fSMP\"}\r\
+    \n               :delay 5s\r\
+    \n              }\r\
+    \n  :if ((\$VoiceFlag=2) or (\$1=2)) do={\r\
+    \n       :do {\r\
+    \n               [\$fSMP playfile \$VoiceFolder \$importantJingle]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function fSMP\"}\r\
+    \n              :delay 5s\r\
+    \n              }\r\
+    \n  :if ((\$VoiceFlag=3) or (\$1=3)) do={\r\
+    \n       :do {\r\
+    \n               [\$fSMP playfile \$VoiceFolder \$alertJingle]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function fSMP\"}\r\
+    \n              :delay 5s\r\
+    \n              }\r\
+    \n   } else={\r\
+    \n# \E4\EE\E1\E0\E2\EB\E5\ED\E8\E5 \EE\EF\F6\E8\E8 \EF\F0\EE\E8\E3\F0\FB\
+    \E2\E0\ED\E8\FF \E4\E6\E8\ED\E3\EB\E0 \F1 \EF\F0\E5\E4\E0\EB\E0\F0\EC\EE\
+    \EC 5\F1\E5\EA (\E2 local AlertVoice)\r\
+    \n       :do {  :global fAlarm\r\
+    \n              :if ([\$fAlarm find \$1]=true) do={[\$fAlarm \$1]; :delay \
+    5s; [\$fSMP stop]\r\
+    \n              }\r\
+    \n   }\r\
+    \n}\r\
+    \n:return []}\r\
+    \n\r\
+    \nlocal ArrayComVoice {\r\
+    \nhellolong=1\r\
+    \ninform=2\r\
+    \nstart=3\r\
+    \nreboot=4\r\
+    \nhello=5\r\
+    \nstartset=6\r\
+    \ninetcheck=7\r\
+    \nwanmain=8\r\
+    \nwanreserve=9\r\
+    \ninetok=10\r\
+    \ninetno=11\r\
+    \ninetblock=12\r\
+    \ninetrestore=13\r\
+    \nwaitreboot=14\r\
+    \nrebooting=15\r\
+    \nshutdown=16\r\
+    \nfirewalloff=17\r\
+    \nfirewallon=18\r\
+    \nrosavaliable=19\r\
+    \nvpnenable=20\r\
+    \nvpndisable=21\r\
+    \nvpnconnect=22\r\
+    \nvpndisconnect=23\r\
+    \n\"wifi+\"=24\r\
+    \nwifion=25\r\
+    \n\"wifi-\"=26\r\
+    \nwifioff=27\r\
+    \nquestwifion=28\r\
+    \nguestwifioff=29\r\
+    \n\"lte+\"=30\r\
+    \nlteon=31\r\
+    \n\"lte-\"=32\r\
+    \nlteoff=33\r\
+    \ndudeon=34\r\
+    \ndudeoff=35\r\
+    \nbackup=36\r\
+    \n\"backup_saved\"=37\r\
+    \n\"backup_saved_disk\"=38\r\
+    \n\"backup_saved_cloud\"=39\r\
+    \nwaitrestore=40\r\
+    \nrestoreok=41\r\
+    \nrestore=42\r\
+    \nfirmware=43\r\
+    \ntelegram=44\r\
+    \nhealthcare=45\r\
+    \nsmssend=46\r\
+    \nsmsin=47\r\
+    \nmailsend=48\r\
+    \ninetnot=49\r\
+    \nswitchmain=50\r\
+    \nswitchreserve=51\r\
+    \n\"dhcp_client+\"=52\r\
+    \n\"dhcp_client-\"=53\r\
+    \ndhcpoff=54\r\
+    \ndhcpon=55\r\
+    \nconsole=56\r\
+    \nbadlogin=57\r\
+    \nadmin=58\r\
+    \n\"change_password\"=61\r\
+    \n\"change_password_ok\"=62\r\
+    \ngpson=63\r\
+    \ngpsoff=64\r\
+    \nusbreset=65\r\
+    \nattack=66\r\
+    \nattackfix=67\r\
+    \naddressblock=68\r\
+    \ndispleyoff=69\r\
+    \ndispleyon=70\r\
+    \nftpon=71\r\
+    \nftpoff=72\r\
+    \ntelneton=73\r\
+    \ntelnetoff=74\r\
+    \nsambaon=75\r\
+    \nsambaoff=76\r\
+    \nsshon=77\r\
+    \nsshoff=78\r\
+    \nmodbuson=79\r\
+    \nmodbusoff=80\r\
+    \nsnmpon=81\r\
+    \nsnmpoff=82\r\
+    \npingno=83\r\
+    \npingok=84\r\
+    \nromonon=85\r\
+    \nromonoff=86\r\
+    \nradiuson=87\r\
+    \nradiusoff=88\r\
+    \nportblocked=89\r\
+    \nlogclear=90\r\
+    \nservicelog=91\r\
+    \ndhcpclient=92\r\
+    \ngatewayok=93\r\
+    \ngatewayno=94\r\
+    \npowerdown=95\r\
+    \n\"power_reserve\"=96\r\
+    \npowerup=97\r\
+    \ngreeting=98\r\
+    \ncopiright=99\r\
+    \n100=100\r\
+    \ncheckwork=101\r\
+    \nntpok=102\r\
+    \nntpno=103\r\
+    \ntimedatenoset=104\r\
+    \ntimedatewrong=105\r\
+    \nntpcloud=106\r\
+    \ntimedateset=107\r\
+    \ntimedateupdate=108\r\
+    \nread=109\r\
+    \nwrite=110\r\
+    \nadmininform=111\r\
+    \naccident=112\r\
+    \nimportant=113\r\
+    \ncurrent=114\r\
+    \n\"voice_active\"=115\r\
+    \nrus=116\r\
+    \neng=117\r\
+    \ncnr=118\r\
+    \n\"newDHCP\"=119\r\
+    \n\"newUserDHCP\"=120\r\
+    \n\"userDHCPblocked\"=121\r\
+    \n\"userWIFIblocked\"=122\r\
+    \naddroute=123\r\
+    \naddmarkroute=124\r\
+    \ndelroute=125\r\
+    \ndelmarkroute=126\r\
+    \ndelinactroute=127\r\
+    \nfirewallreset=128\r\
+    \nfirewallinactreset=129\r\
+    \naddscript=130\r\
+    \ndelscript=131\r\
+    \naddsched=132\r\
+    \nactsched=133\r\
+    \ndelsched=134\r\
+    \naddadrlist=135\r\
+    \naddaddress=136\r\
+    \ndeladdress=137\r\
+    \naddintlist=138\r\
+    \n\"VPNinactreconnect\"=139\r\
+    \n\"LTEinactreconnect\"=140\r\
+    \n\"PPPinactreconnect\"=141\r\
+    \n\"VPNreset\"=142\r\
+    \nsslclient=143\r\
+    \nsslserver=144\r\
+    \npassword=145\r\
+    \nmodeminit=146\r\
+    \nwaitmodem=147\r\
+    \ncelupdate=148\r\
+    \nati=149\r\
+    \ncregok=150\r\
+    \ncregno=151\r\
+    \nmodemreset=152\r\
+    \nrssiok=153\r\
+    \nrssilow=154\r\
+    \nspeedhigh=155\r\
+    \nspeedlow=156\r\
+    \n\"modem_inetok\"=157\r\
+    \n\"modem_inetno\"=158\r\
+    \n\"firmware_lte\"=159\r\
+    \n\"firmware_lte_ok\"=160\r\
+    \n\"firmware_lte_error\"=161\r\
+    \nusbconnect=162\r\
+    \nusbnas=163\r\
+    \nusbdisk=164\r\
+    \nusblan=165\r\
+    \nusbmodem=166\r\
+    \nusbserial=167\r\
+    \nusbno=168\r\
+    \nusbbusy=169\r\
+    \nusbinactive=170\r\
+    \nmainofficeno=171\r\
+    \nmainofficeok=172\r\
+    \nfilialno=173\r\
+    \nfilialok=174\r\
+    \nvpnmain=175\r\
+    \nvpnreserve=176\r\
+    \nvpnmainno=177\r\
+    \nvpnreserveok=178\r\
+    \nvpnclientno=179\r\
+    \nvpnclientok=180\r\
+    \nvpnunstable=181\r\
+    \nspeedvpnhigh=182\r\
+    \nspeedvpnmiddle=183\r\
+    \nspeedvpnlow=184\r\
+    \nfetchint=185\r\
+    \nfetchintans=186\r\
+    \nfetchext=187\r\
+    \nfetchextans=188\r\
+    \ncpu90=189\r\
+    \ncpu100=190\r\
+    \ncpuload=191\r\
+    \nimport=192\r\
+    \ninkey=193\r\
+    \n\"enter_login\"=194\r\
+    \n\"enter_password\"=195\r\
+    \n\"enter_key\"=196\r\
+    \n\"enter_yn\"=197\r\
+    \nwifitimerange=198\r\
+    \ninettimerange=199\r\
+    \nblock=200\r\
+    \nunblock=201\r\
+    \ntesendactive=202\r\
+    \ntesendlogin=203\r\
+    \ntesend=204\r\
+    \nwifistop=205\r\
+    \nwifistart=206\r\
+    \nwifirun=207\r\
+    \nwifiactive=208\r\
+    \nwificonnect=209\r\
+    \nwifiout=210\r\
+    \nwificome=211\r\
+    \nwifishutdown=212\r\
+    \nwifilimit=213\r\
+    \nltelimit=214\r\
+    \ndelfiles=215\r\
+    \nmikrotik=216\r\
+    \nforum=217\r\
+    \nforumrus=218\r\
+    \nsertik=219\r\
+    \nvoicetimerun=220\r\
+    \nh00=221\r\
+    \nh01=222\r\
+    \nh02=223\r\
+    \nh03=224\r\
+    \nh04=225\r\
+    \nh05=226\r\
+    \nh06=227\r\
+    \nh07=228\r\
+    \nh08=229\r\
+    \nh09=230\r\
+    \nh10=231\r\
+    \nh11=232\r\
+    \nh12=233\r\
+    \nh13=234\r\
+    \nh14=235\r\
+    \nh15=236\r\
+    \nh16=237\r\
+    \nh17=238\r\
+    \nh18=239\r\
+    \nh19=240\r\
+    \nh20=241\r\
+    \nh21=242\r\
+    \nh22=243\r\
+    \nh23=244\r\
+    \nvoicetimestop=245\r\
+    \n}\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"Error: no set name command/name jingle\
+    \"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :put \"\"; :put \"<---- List \$0 jingles name in function ---->\"\
+    \r\
+    \n          :foreach k,v in=\$ArrayComVoice do={\r\
+    \n      :if ([:len \$2]>0) do={\\\r\
+    \n          :if ([:len [:find \$k \$2]]>0) do={:put \$k}\\\r\
+    \n         } else={:put \$k}\r\
+    \n     }\r\
+    \n      :put \"\";\r\
+    \n  :return []}\r\
+    \n\r\
+    \n:if (\$1=\"\\6C\\69\\73\\74\\65\\78\\74\") do={\r\
+    \n      :put \"\"; :put \"<---- List \$0 jingles num in folder \$VoiceFold\
+    er TF-card and name in function ---->\"\r\
+    \n   :local Lfind [:toarray \"\"]\r\
+    \n          :foreach k,v in=\$ArrayComVoice do={\r\
+    \n   :if ([:len \$2]>0) do={\\\r\
+    \n          :if ([:len [:find \$k \$2]]>0) do={:put (\"\$v\".\" - \".\"\$k\
+    \"); :set Lfind (\$Lfind,\"\$k=\$v\")}\\\r\
+    \n         } else={:put (\"\$v\".\" - \".\"\$k\")}\r\
+    \n     }\r\
+    \n      :put \"\";\r\
+    \n :if ([:len \$2]>0) do={:return \$Lfind} else={:return \$ArrayComVoice}\
+    \r\
+    \n}\r\
+    \n\r\
+    \n :if (\$1=\"find\") do={\r\
+    \n     :if ([:len (\$ArrayComVoice->\$2)]>0) do={:return true} else={:retu\
+    rn false}\r\
+    \n     }\r\
+    \n\r\
+    \n    :local SMPanswer\r\
+    \n\r\
+    \n  :if (\$1=\"stop\") do={\r\
+    \n   :do {\r\
+    \n        :set SMPanswer [\$fSMP mp3type]\r\
+    \n           :if (\$SMPanswer=\"DFPlayer\") do={:return \"mp3 module is no\
+    t supported\"}\r\
+    \n        :set SMPanswer [\$fSMP stop]\r\
+    \n            } on-error={:return \"Error \$0 function call MikroVoice mod\
+    ule function SMP\"}\r\
+    \n}\r\
+    \n\r\
+    \n  :if (\$1=\"pause\") do={\r\
+    \n   :do {\r\
+    \n        :set SMPanswer [\$fSMP mp3type]\r\
+    \n           :if (\$SMPanswer=\"DFPlayer\") do={:return \"mp3 module is no\
+    t supported\"}\r\
+    \n        :set SMPanswer [\$fSMP pause]\r\
+    \n            } on-error={:return \"Error \$0 function call MikroVoice mod\
+    ule function SMP\"}\r\
+    \n}\r\
+    \n\r\
+    \n :if (\$1=\"playback\") do={\r\
+    \n   :do {\r\
+    \n        :set SMPanswer [\$fSMP mp3type]\r\
+    \n           :if (\$SMPanswer=\"DFPlayer\") do={:return \"mp3 module is no\
+    t supported\"}\r\
+    \n        :set SMPanswer [\$fSMP play]\r\
+    \n            } on-error={:return \"Error \$0 function call MikroVoice mod\
+    ule function SMP\"}\r\
+    \n}\r\
+    \n\r\
+    \n  :if (\$1=\"lang\") do={\r\
+    \n      :if ((\$2=\"RUS\") or (\$2=\"ENG\") or (\$2=CNR)) do={ \r\
+    \n      :if ([:len [/ip firewall layer7-protocol find name=\$fFL7Lang]]=0)\
+    \_do={\r\
+    \n            /ip firewall layer7-protocol add name=\$fFL7Lang regexp=\$2 \
+    \\\r\
+    \n        } else={\\\r\
+    \n            :if (\$2!=[/ip firewall layer7 get [find name=\$fFL7Lang] re\
+    gexp]) do={\r\
+    \n                          /ip firewall layer7-protocol set [find name=\$\
+    fFL7Lang] regexp=\$2}\r\
+    \n             :return \"Done. Select MikroVoice language \$2\"}\r\
+    \n} else={:return \"ERROR select language \$2\"}\r\
+    \n}\r\
+    \n\r\
+    \n:local VoiceNum; :do {:set VoiceNum [:tonum \$1]} on-error={}\r\
+    \n               :local JingleNum\r\
+    \n               :local cmd\r\
+    \n\r\
+    \n:if ([:typeof \$VoiceNum]=\"num\") do={\r\
+    \n\r\
+    \n     :foreach k,v in=\$ArrayComVoice do={:if (\$v=\$VoiceNum) do={:set c\
+    md \$k; set JingleNum \$v}}\r\
+    \n     :if ([:len \$cmd]=0) do={:return \"Error: jingle number mismatch \$\
+    0\"}\r\
+    \n               :do {\$AlertVoice \$3} on-error={}\r\
+    \n               :put (\"Play jingle\".\" \$cmd\". \" < \$JingleNum >\".\"\
+    \_in bibliojinglesfolder \$VoiceFolder\")\r\
+    \n               :log warning (\"Play jingle\".\" \$cmd\". \" < \$JingleNu\
+    m >\".\" in bibliojinglesfolder \$VoiceFolder\")\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$VoiceFolder \$VoiceNum]\
+    \r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n                    } else={\r\
+    \n\r\
+    \n   :set cmd (\$ArrayComVoice->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command/name jingle\"}\
+    \r\
+    \n               :do {\$AlertVoice \$3} on-error={}\r\
+    \n               :put \"Play jingle \$1 in bibliojinglesfolder \$VoiceFold\
+    er\"\r\
+    \n               :log warning \"Play jingle \$1 in bibliojinglesfolder \$V\
+    oiceFolder\"\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$VoiceFolder \$cmd]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n   }\r\
+    \n  :return \$SMPanswer\r\
+    \n}"
+add dont-require-permissions=no name=mv_fAlarm owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fAlarm\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# function Alarm for MikroVoice\r\
+    \n\r\
+    \n\r\
+    \n:global fAlarm do={\r\
+    \n\r\
+    \n  :global SMPport\r\
+    \n  :local AlarmFolder 1\r\
+    \n  :global fSMP\r\
+    \n  :local SMPflag true\r\
+    \n\r\
+    \n  :do {\r\
+    \n     :if (!any \$fSMP) do={:global fSMP; /system script run mv_fSMP}; # \
+    function play SerialUSBPlayer_SMP;\r\
+    \n          } on-error={:set SMPflag false}\r\
+    \n\r\
+    \n\r\
+    \n   :if (!\$SMPflag) do={:return \"Error: no SMP function\"}\r\
+    \n   \r\
+    \n\r\
+    \n:local ArrayComAlarm {\r\
+    \n\"avto\"=\"1\"\r\
+    \n\"trevoga\"=\"2\"\r\
+    \n\"beeper\"=\"3\" \r\
+    \n\"sirena\"=\"4\"\r\
+    \n\"gorn\"=\"5\"\r\
+    \n\"ship\"=\"6\"\r\
+    \n\"trell\"=\"7\"\r\
+    \n\"policy\"=\"8\"\r\
+    \n\"wake\"=\"9\"\r\
+    \n\"start\"=\"10\"\r\
+    \n\"imperial\"=\"11\"\r\
+    \n\"gudok\"=\"12\"\r\
+    \n\"xfiles\"=\"13\"\r\
+    \n\"crazy\"=\"14\"\r\
+    \n\"nupogody\"=\"15\"\r\
+    \n\"retro\"=\"16\"\r\
+    \n\"random\"=\"17\"\r\
+    \n\"short\"=\"18\"\r\
+    \n\"space\"=\"19\"\r\
+    \n\"initial\"=\"20\"\r\
+    \n\"run\"=\"21\"\r\
+    \n\"news\"=\"22\"\r\
+    \n\"optimus\"=\"23\"\r\
+    \n\"insert\"=\"24\"\r\
+    \n\"change\"=\"25\"\r\
+    \n\"tehno\"=\"26\"\r\
+    \n\"culture\"=\"27\"\r\
+    \n\"retro\"=\"28\"\r\
+    \n\"cosmodown\"=\"29\"\r\
+    \n\"roy\"=\"31\"\r\
+    \n\"robot1\"=\"32\"\r\
+    \n\"nlo\"=\"34\"\r\
+    \n\"lunokhod\"=\"35\"\r\
+    \n\"object\"=\"36\"\r\
+    \n\"fly\"=\"38\"\r\
+    \n\"robot2\"=\"39\"\r\
+    \n\"sms\"=\"41\"\r\
+    \n\"samsung\"=\"42\"\r\
+    \n\"blaster1\"=\"44\"\r\
+    \n\"blaster2\"=\"48\"\r\
+    \n\"policy\"=\"50\"\r\
+    \n\"alarm_sirena\"=\"51\"\r\
+    \n\"alarm_clock\"=\"53\"\r\
+    \n\"alarm_secunds\"=\"54\"\r\
+    \n\"alarm_beards\"=\"55\"\r\
+    \n\"alcatel\"=\"56\"\r\
+    \n\"standup\"=\"57\"\r\
+    \n\"car\"=\"58\"\r\
+    \n\"alarm_mixed\"=\"59\"\r\
+    \n\"alarm_cuckoo\"=\"60\"\r\
+    \n\"alarm_melody\"=\"61\"\r\
+    \n\"cucaracha\"=\"62\"\r\
+    \n\"lenovo\"=\"63\"\r\
+    \n\"alarm_lumia\"=\"64\"\r\
+    \n\"vestministr\"=\"65\"\r\
+    \n\"police\"=\"66\"\r\
+    \n\"alarm_rooster\"=\"67\"\r\
+    \n\"alarm_softbells\"=\"68\"\r\
+    \n\"alarm_sweet\"=\"69\"\r\
+    \n\"clock_cuckoo\"=\"70\"\r\
+    \n\"sonar\"=\"71\"\r\
+    \n\"careless\"=\"72\"\r\
+    \n\"eeee\"=\"73\"\r\
+    \n\"intro\"=\"74\"\r\
+    \n\"oy\"=\"79\"\r\
+    \n\"scatman\"=\"81\"\r\
+    \n\"gorn\"=\"85\"\r\
+    \n}\r\
+    \n\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={\r\
+    \n               :do {\r\
+    \n               [\$fSMP playfile \$AlarmFolder 1]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function fSMP\"}\r\
+    \n   :return []\r\
+    \n}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :put \"\"; :put \"<---- List \$0 jingles name ---->\"\r\
+    \n          :foreach k,v in=\$ArrayComAlarm do={:put \$k}\r\
+    \n      :put \"\";\r\
+    \n  :return \$ArrayComAlarm}\r\
+    \n\r\
+    \n :if (\$1=\"find\") do={\r\
+    \n     :if ([:len (\$ArrayComAlarm->\$2)]>0) do={:return true} else={:retu\
+    rn false}\r\
+    \n     }\r\
+    \n\r\
+    \n:local AlarmNum; :do {:set AlarmNum [:tonum \$1]} on-error={}\r\
+    \n               :local JingleNum\r\
+    \n               :local SMPanswer\r\
+    \n               :local cmd\r\
+    \n\r\
+    \n:if ([:typeof \$AlarmNum]=\"num\") do={\r\
+    \n\r\
+    \n     :foreach k,v in=\$ArrayComAlarm do={:if (\$v=\$AlarmNum) do={:set c\
+    md \$k; set JingleNum \$v}}\r\
+    \n     :if ([:len \$cmd]=0) do={:return \"Error: jingle number mismatch \$\
+    0\"}\r\
+    \n               :put (\"Play jingle\".\" \$cmd\". \" < \$JingleNum >\".\"\
+    \_in bibliojinglesfolder \$AlarmFolder\")\r\
+    \n               :log warning (\"Play jingle\".\" \$cmd\". \" < \$JingleNu\
+    m >\".\" in bibliojinglesfolder \$AlarmFolder\")\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$AlarmFolder \$AlarmNum]\
+    \r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function fSMP\"}\r\
+    \n                    } else={\r\
+    \n\r\
+    \n   :set cmd (\$ArrayComAlarm->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command/name jingle\"}\
+    \r\
+    \n               :put \"Play jingle \$1 in bibliojinglesfolder \$AlarmFold\
+    er\"\r\
+    \n               :log warning \"Play jingle \$1 in bibliojinglesfolder \$A\
+    larmFolder\"\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$AlarmFolder \$cmd]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n   }\r\
+    \n  :return \$SMPanswer\r\
+    \n}"
+add dont-require-permissions=no name=mv_fFunny owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="\
+    \r\
+    \n#!rsc by RouterOS\r\
+    \n# RouterOS script: mv_fFunny\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# function Funny for MikroVoice\r\
+    \n\r\
+    \n:global fFunny do={\r\
+    \n\r\
+    \n  :global SMPport\r\
+    \n  :local FunnyFolder 6\r\
+    \n  :global fSMP\r\
+    \n  :local SMPflag true\r\
+    \n\r\
+    \n  :do {\r\
+    \n     :if (!any \$fSMP) do={:global fSMP; /system script run mv_fSMP}; # \
+    function play SerialUSBPlayer_SMP;\r\
+    \n          } on-error={:set SMPflag false}\r\
+    \n\r\
+    \n   :if (!\$SMPflag) do={:return \"Error: no SMP function\"}\r\
+    \n   \r\
+    \n:local ArrayComFunny {\r\
+    \n\"babayaga\"=\"1\"\r\
+    \n\"zloyvolk\"=\"2\"\r\
+    \n\"volkipes\"=\"3\" \r\
+    \n\"skokayazarezal\"=\"4\"\r\
+    \n\"parasha\"=\"5\"\r\
+    \n\"kindzatsel\"=\"6\"\r\
+    \n\"kindzaku\"=\"7\"\r\
+    \n\"kindzaraza\"=\"8\"\r\
+    \n\"karusel\"=\"9\"\r\
+    \n\"buronakhodok\"=\"10\"\r\
+    \n\"funtik\"=\"11\"\r\
+    \n\"gav\"=\"12\"\r\
+    \n\"maugly\"=\"13\"\r\
+    \n\"moydodyr\"=\"14\"\r\
+    \n\"nupogody\"=\"15\" \r\
+    \n\"vorona\"=\"16\"\r\
+    \n\"prostokvashino\"=\"17\"\r\
+    \n\"pustbegutneukluzhe\"=\"18\"\r\
+    \n\"uzhasno\"=\"19\"\r\
+    \n\"vinnipuh\"=\"20\"\r\
+    \n\"kapitanvrungel\"=\"21\"\r\
+    \n\"babushka\"=\"22\"\r\
+    \n\"banderlogy\"=23\"\r\
+    \n\"bogpomosh\"=\"25\"\r\
+    \n\"griaz\"=\"27\"\r\
+    \n\"leopold\"=\"32\"\r\
+    \n\"internetgout\"=\"35\"\r\
+    \n\"nahuy\"=\"36\"\r\
+    \n\"kats\"=\"37\"\r\
+    \n\"starche\"=\"39\"\r\
+    \n\"sidigreysia\"=\"41\"\r\
+    \n\"samozvanets\"=\"46\"\r\
+    \n\"lenin\"=\"51\"\r\
+    \n\"aristarh\"=\"58\"\r\
+    \n\"tamozhniya\"=\"61\"\r\
+    \n\"suchka\"=98\"\r\
+    \n}\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"\C5rror: no set name command/name jingl\
+    e\"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :put \"\"; :put \"<---- List \$0 jingles name ---->\"\r\
+    \n          :foreach k,v in=\$ArrayComFunny do={:put \$k}\r\
+    \n      :put \"\";\r\
+    \n  :return \$ArrayComFunny}\r\
+    \n\r\
+    \n:local FunnyNum; :do {:set FunnyNum [:tonum \$1]} on-error={}\r\
+    \n               :local JingleNum\r\
+    \n               :local SMPanswer\r\
+    \n               :local cmd\r\
+    \n\r\
+    \n:if ([:typeof \$FunnyNum]=\"num\") do={\r\
+    \n\r\
+    \n     :foreach k,v in=\$ArrayComFunny do={:if (\$v=\$FunnyNum) do={:set c\
+    md \$k; set JingleNum \$v}}\r\
+    \n     :if ([:len \$cmd]=0) do={:return \"Error: jingle number mismatch \$\
+    0\"}\r\
+    \n               :put (\"Play jingle\".\" \$cmd\". \" < \$JingleNum >\".\"\
+    \_in bibliojinglesfolder \$FunnyFolder\")\r\
+    \n               :log warning (\"Play jingle\".\" \$cmd\". \" < \$JingleNu\
+    m >\".\" in bibliojinglesfolder \$FunnyFolder\")\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$FunnyFolder \$FunnyNum]\
+    \r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n                    } else={\r\
+    \n\r\
+    \n   :set cmd (\$ArrayComFunny->\$1)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad command/name jingle\"}\
+    \r\
+    \n               :put \"Play jingle \$1 in bibliojinglesfolder \$FunnyFold\
+    er\"\r\
+    \n               :log warning \"Play jingle \$1 in bibliojinglesfolder \$F\
+    unnyFolder\"\r\
+    \n               :do {\r\
+    \n               :set SMPanswer [\$fSMP playfile \$FunnyFolder \$cmd]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n   }\r\
+    \n  :return \$SMPanswer\r\
+    \n}\r\
+    \n"
+add dont-require-permissions=no name=mv_fMeloman owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="\
+    \r\
+    \n#!rsc by RouterOS\r\
+    \n# RouterOS script: mv_fMeloman\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# function Meloman for MikroVoice\r\
+    \n\r\
+    \n:global fMeloman do={\r\
+    \n\r\
+    \n  :global SMPport\r\
+    \n  :global fSMP\r\
+    \n  :local SMPflag true\r\
+    \n\r\
+    \n  :do {\r\
+    \n     :if (!any \$fSMP) do={:global fSMP; /system script run mv_fSMP}; # \
+    function play SerialUSBPlayer_SMP;\r\
+    \n          } on-error={:set SMPflag false}\r\
+    \n\r\
+    \n   :if (!\$SMPflag) do={:return \"Error: no SMP function\"}\r\
+    \n\r\
+    \n:local ArrayComCollect {\r\
+    \n\"ariya\"=\"12\"\r\
+    \n\"kuzmin\"=\"11\"\r\
+    \n\"random\"=\"7\" \r\
+    \n\"bravo\"=\"8\"\r\
+    \n\"frend\"=\"9\"\r\
+    \n\"antonov\"=\"10\"\r\
+    \n\"kish\"=\"15\"\r\
+    \n\"miraj\"=16\"\r\
+    \n\"visotskiy\"=\"17\"\r\
+    \n}\r\
+    \n\r\
+    \n\r\
+    \n#-----------------------------------------------------------------------\
+    -----\r\
+    \n# main function`s code\r\
+    \n# ----------------------------------------------------------------------\
+    -----\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"\C5rror: no set name command/name muzic\
+    \_collection\"}\r\
+    \n\r\
+    \n   :if (\$1=\"list\") do={\r\
+    \n      :put \"\"; :put \"<---- List \$0 music concert collection name ---\
+    ->\"\r\
+    \n          :foreach k,v in=\$ArrayComCollect do={:put \"\$k - /on folder \
+    \$v/\"}\r\
+    \n      :put \"\";\r\
+    \n  :return \$ArrayComCollect}\r\
+    \n\r\
+    \n               :local SMPanswer\r\
+    \n               :local cmd\r\
+    \n               :local MelomanName\r\
+    \n\r\
+    \n:if ([:len \$1]=0) do={:return \"Error: \$0 bad collection name\"}\r\
+    \n\r\
+    \n:do {\r\
+    \n   :set MelomanName [:tostr \$1]\r\
+    \n              } on-error={:return \"Error: \$0 bad collection name \$1\"\
+    }\r\
+    \n\r\
+    \n   :set cmd (\$ArrayComCollect->\$MelomanName)\r\
+    \n    :if ([:len \$cmd]=0) do={:return \"Error: bad name muzic collection\
+    \"}\r\
+    \n               :put \"Play muzic collection \$1\"\r\
+    \n               :log warning \"Play muzic collection \$1\"\r\
+    \n               :do {\r\
+    \n               :if ([\$fSMP mp3type]=\"DFPlayer\") do={\"\$0 function mp\
+    3 module is not supported\"}\r\
+    \n               :set SMPanswer [\$fSMP playfolder \$cmd]\r\
+    \n                } on-error={:return \"Error \$0 function call MikroVoice\
+    \_module function SMP\"}\r\
+    \n\r\
+    \n  :return \$SMPanswer\r\
+    \n}"
+add comment="v 3.0 by Sertik 2024" dont-require-permissions=no name=\
+    mv_fMikroVoice owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    !rsc by RouterOS\r\
+    \n# RouterOS script: mv_fMikroVoice\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# playback function for BT201 Shenzhen Qingyue Electronics mp3 player\r\
+    \n#\r\
+    \n\r\
+    \n# usage:\r\
+    \n\r\
+    \n# [\$fMikroVoice] or [\$fMikroVoice help] - information copyright & serv\
+    ice parameter`s \$1 to /terminal\r\
+    \n# [\$fMikroVoice list]\r\
+    \n# [\$fMikroVoice <MikroVoiceComponentName>], for example [\$fMikroVoice \
+    fVoice]\r\
+    \n# [\$fMikroVoice unload]\r\
+    \n# [\$fMikroVoice install]\r\
+    \n# [\$fMikroVoice start serial1] in start may be set SMPport in \$2\r\
+    \n\r\
+    \n\r\
+    \n:global fMikroVoice do={\r\
+    \n\r\
+    \n:local SystemName MikroVoice\r\
+    \n:local MVsysName \"MikroVoiceSys\"\r\
+    \n:local MVsysGitHub \"https://github.com/Sertik13/MikroVoice/blob/main/\$\
+    MVsysName\"\r\
+    \n:global SMPport\r\
+    \n:global serialModuleType\r\
+    \n\r\
+    \n :local cmd list\r\
+    \n :local MVar {\"fTF\";\"fSMP\";\"fVoice\";\"fAlarm\";\"fFunny\";\"fMelom\
+    an\"}\r\
+    \n\r\
+    \n     :local func [:tostr \$1]     \r\
+    \n     :if (([:len \$1]=0) or (\$1=\"help\")) do={\r\
+    \n      \r\
+    \n      :put \"\"\r\
+    \n      :put \"-----------------------------------------------------------\
+    --------------\"\r\
+    \n      :put \"               MikroVoice system for MikroJuxBox\"\r\
+    \n      :put (\"                   \".\"\$[/system script get [/system scr\
+    ipt find name=mv_fMikroVoice] comment]\")\r\
+    \n      :put \"-----------------------------------------------------------\
+    --------------\"\r\
+    \n      :put \"\"\r\
+    \n      :put \"To access service capabilities use \$0 \\\$1, where \\\$1 i\
+    s:\"\r\
+    \n      :put \" \$0 <install> - system installation/reinstallation\"\r\
+    \n      :put \" \$0 <unload> - unload from /system environment\"\r\
+    \n      :put \" \$0 <unistall> - unload and remove from /system script\"\r\
+    \n      :put \" \$0 <start> <port> - load and start/restart MikroVoice, fo\
+    rce set of working port\"\r\
+    \n      :put \"\"\r\
+    \n  :return []\r\
+    \n}\r\
+    \n\r\
+    \n     :if (\$1=\"start\") do={\r\
+    \n                :do {\r\
+    \n                      :if ([:typeof \$2]=\"str\") do={:set SMPport \$2} \
+    else={:set SMPport}\r\
+    \n                      /system script run mv_fSMP\r\
+    \n                      /system script run mv_fVoice\r\
+    \n                      /system script run mv_fTF\r\
+    \n                   } on-error={:error \"\\\$\$0 components is not find o\
+    r crahed\"}\r\
+    \n     :global SMPport\r\
+    \n     :put \"\$0 system is start \$SMPport\"\r\
+    \n    :return \"\$0 system is start\"}\r\
+    \n\r\
+    \n     :if (\$1=\"install\") do={\r\
+    \n     :put  (\"\$0 system preparation for reinstallation ...\")     \r\
+    \n     :global MikroVoice\r\
+    \n     :do {\r\
+    \n    :put  (\"\$0 system will remove all components ...\")   \r\
+    \n     [\$fMikroVoice uninstall]\r\
+    \n            } on-error={}\r\
+    \n     :local fSys [/file find name=\$MVsysName]\r\
+    \n     :if ([:len \$fSys]=0) do={\r\
+    \n  :do {\r\
+    \n      :put  (\"\$MVsysName is not find in router /files\")   \r\
+    \n      :put  (\"\$0 system will boot from GitHub labruary ...\")   \r\
+    \n      /tool fetch url=\$MVsysGitHub\r\
+    \n         } on-error={:error \"\\\$\$0 system installation file was not f\
+    ound on the disk or remote resource. System installation is not possible.\
+    \"}\r\
+    \n        :delay 5s\r\
+    \n  }\r\
+    \n  :do {\r\
+    \n       :put  (\"\$0 system is installed in the router repository and env\
+    ironment ...\")   \r\
+    \n        /import \$MVsysName\\\r\
+    \n       } on-error={:error \"\\\$\$0 system unpacking error\"}\r\
+    \n;\r\
+    \n     :return \"\$0 system install\"\r\
+    \n   }\r\
+    \n\r\
+    \n     :if (\$1=\"unload\") do={\r\
+    \n         :foreach i in=\$MVar do={\\\r\
+    \n                    [[:parse \":global \$i; :set \$i\"]]\r\
+    \n                    }\r\
+    \n        :set SMPport\r\
+    \n        :set serialModuleType\r\
+    \n        :put  (\"\$0 system functions unload\")\r\
+    \n    :return (\"library \$0 \".\" is unload\")\r\
+    \n}\r\
+    \n\r\
+    \n       :if (\$1=\"uninstall\") do={\r\
+    \n             :global MikroVoice\r\
+    \n             [\$fMikroVoice unload]\r\
+    \n             :do {\r\
+    \n                    /system script remove [/system script find owner=[:p\
+    ick \$0 1 [:len \$0]]]\r\
+    \n                   :put  (\"\$0 system scripts removed\")\r\
+    \n                    :delay 1s\r\
+    \n                    /system scheduler remove start_Mikro_Voice_demo\r\
+    \n                    /system scheduler remove start_MikroVoice_alarm_Xfil\
+    es_funny_Kindzadza\r\
+    \n                   /system scheduler remove [find where name~\"^mv_.*\"]\
+    \r\
+    \n                   :put  (\"\$0 system sheduler task`s removed\")\r\
+    \n            } on-error={}\r\
+    \n      :return (\"library \$0 \".\" is uninstall\")\r\
+    \n     }\r\
+    \n\r\
+    \n     :local MVflag false\r\
+    \n     :local fcont 0\r\
+    \n     :foreach i in=\$MVar do={\\\r\
+    \n           :if (\$1=\"list\") do={\r\
+    \n                :if (\$fcont=0) do={:put \"\"; :put (\"\$SystemName \".\
+    \"components:\"); :put \"---------------------\"; :set fcont 1}\r\
+    \n                    :put \$i\r\
+    \n                    }\r\
+    \n           :if (\$1=\$i) do={:set MVflag true}\r\
+    \n    }\r\
+    \n :if (\$1=\"list\") do={:return \$MVar}\r\
+    \n :if (!\$MVflag) do={:return (\"Is not component of \$SystemName system\
+    \")}\r\
+    \n\r\
+    \n :if (([:len [/system script environment find name=\$func]]!=0) and \\\r\
+    \n       ([:len [:find [/system script environment get [/system script env\
+    ironment find name=\$func] value] \"(eval\"]]>0)) do={\r\
+    \n\r\
+    \n     :return [[:parse \":global \$func ; :return [\\\$\$func \$cmd]\"]]\
+    \r\
+    \n } else={:return \"Component function not found in script`s environment\
+    \" }\r\
+    \n}"
+add dont-require-permissions=no name=mv_fTF owner=MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="\
+    \r\
+    \n#!rsc by RouterOS\r\
+    \n# RouterOS script: mv_fSMP\r\
+    \n# Copyright (c) 2023-2024 Sertik (Sergey Serkov) <mikrovoice@bk.ru>\r\
+    \n# https://github.com/Sertik13/MikroVoice/blob/main/LICENSE\r\
+    \n#\r\
+    \n# The ROS version is required to be at least version 6.43\r\
+    \n#\r\
+    \n# function fTF for MikroVoice\r\
+    \n#\r\
+    \n\r\
+    \n:global fTF do={\r\
+    \n\r\
+    \n:local ArrayComTF [:toarray \"\"]\r\
+    \n:global serialModuleType\r\
+    \n\r\
+    \n:if (\$serialModuleType!=\"DFPlayer\") do={\r\
+    \n\r\
+    \n:set ArrayComTF {\r\
+    \n\"01\"=\"Alarm jingles < Alarm > 071\"\r\
+    \n\"02\"=\"Voice system RUS jingles < Voice > 245\"\r\
+    \n\"03\"=\"Voice system ENG jingles < Voice > 245\" \r\
+    \n\"04\"=\"Voice reserve for CHR jingles <Voice > 245\"\r\
+    \n\"05\"=\"reserve\"\r\
+    \n\"06\"=\"Aforizm & joke`s jingles < Funny > 108\"\r\
+    \n\"07\"=\"Random compositions < Meloman > 009\"\r\
+    \n\"08\"=\"Bravo`s songs < Meloman > 009\"\r\
+    \n\"09\"=\"Fread songs < Meloman > 021\"\r\
+    \n\"10\"=\"Yuriy Antonov`s songs < Meloman > 013\"\r\
+    \n\"11\"=\"Vladimir Kuz`min songs < Meloman > 010\"\r\
+    \n\"12\"=\"Aria < Meloman > 009\"\r\
+    \n\"13\"=\"Kin Dza Dza aforizm jingles < SMP > 020\"\r\
+    \n\"14\"=\"Polytic jokes & jingles < SMP> 027\"\r\
+    \n\"15\"=\"KISH < Meloman > 030\"\r\
+    \n\"16\"=\"Miraj < Meloman > 009\"\r\
+    \n\"17\"=\"Vladimir Vysotskiy < Meloman > 009\"\r\
+    \n\"18\"=\"Skazki < SMP > 010\"\r\
+    \n\"19\"=\"Basni < SMP > 035\"\r\
+    \n\"20\"=\"Minusovki < SMP > 018\"\r\
+    \n\"21\"=\"NeuroNet < SMP > 015\"\r\
+    \n}\r\
+    \n\r\
+    \n} else={\r\
+    \n\r\
+    \n:set ArrayComTF {\r\
+    \n\"01\"=\"Alarm jingles < Alarm > 071\"\r\
+    \n\"02\"=\"Voice system RUS jingles < Voice > 245\"\r\
+    \n\"03\"=\"Voice system ENG jingles < Voice > 245\" \r\
+    \n\"04\"=\"Voice reserve for CHR jingles <Voice > 245\"\r\
+    \n\"05\"=\"reserve\"\r\
+    \n\"06\"=\"Aforizm & joke`s jingles < Funny > 108\"\r\
+    \n\"13\"=\"Kin Dza Dza aforizm jingles < SMP > 020\"\r\
+    \n\"14\"=\"Polytic jokes & jingles < SMP> 027\"\r\
+    \n}\r\
+    \n\r\
+    \n}\r\
+    \n\r\
+    \n      :put \"\"; :put \"<---- TF card MikroVoice system structure ---->\
+    \"\r\
+    \n          :foreach k,v in=\$ArrayComTF do={:put (\"\$k\".\" - \".\"\$v\"\
+    )}\r\
+    \n      :put \"\";\r\
+    \n :if (\$1=\"list\") do={:return \$ArrayComTF}\r\
+    \n  :return []}"
+add dont-require-permissions=no name="mv_example DHCP-client" owner=\
+    MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    \_example add MikroVoice in DHCP-client script\r\
+    \n\r\
+    \n/ip dhcp-client set [/ip dhcp-client find] script=\\\r\
+    \n\"# script dhcp-client MikroVoice System;\\\r\
+    \n # by Sertik 20/06/2024;\\\r\
+    \n #\r\
+    \n  :global fSMP;\r\
+    \n  :global fVoice;\r\
+    \n  :if (\\\$bound=1) do={\r\
+    \n:do {\r\
+    \n     :put [\\\$fSMP stop]\r\
+    \n     :put [\\\$fVoice dhcpclient]\r\
+    \n        } on-error={}\r\
+    \n   :delay 5s\r\
+    \n   :if ([/ping 8.8.8.8 count=3 interface=\\\$interface]>1) do={\\\r\
+    \n        :put [\\\$fVoice inetok]\r\
+    \n      } else={\\\r\
+    \n        :put [\\\$fVoice inetno]} \r\
+    \n}\""
+add dont-require-permissions=no name="mv_example_backup " owner=MikroVoice \
+    policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    source="#--------------------------\r\
+    \n# Backup MikroVoice script \r\
+    \n#--------------------------\r\
+    \n\r\
+    \n# send or no send on E-mail\r\
+    \n\r\
+    \n:local mailsend false\r\
+    \n:local mailBox \"user@mail.ru\"\r\
+    \n\r\
+    \n:global fVoice\r\
+    \n\r\
+    \n    :log warning \"Starting Backup Script...\";\r\
+    \n    :local sysname [/system identity get name];\r\
+    \n    :local sysver [/system package get system version];\r\
+    \n    :local sysDate ([:pick [/system clock get date] 7 11] . [:pick [/sys\
+    tem clock get date] 0 3] . [:pick [/system clock get date] 4 6])\r\
+    \n    :log info \"Flushing DNS cache...\";\r\
+    \n     /ip dns cache flush;\r\
+    \n     :delay 2;\r\
+    \n\r\
+    \n     :log info \"Deleting last Backups...\";\r\
+    \n         :foreach i in=[/file find] do={:if (([:typeof [:find [/file get\
+    \_\$i name] \\\r\
+    \n         \"\$sysname-backup-\"]]!=\"nil\") or ([:typeof [:find [/file ge\
+    t \$i name] \\\r\
+    \n         \"\$sysname-script-\"]]!=\"nil\")) do={/file remove \$i}};\r\
+    \n      :delay 2;\r\
+    \n\r\
+    \n    :if (any \$fVoice) do={\r\
+    \n       :do {\r\
+    \n        \$fVoice backup\r\
+    \n       } on-error={}  \r\
+    \n    }\r\
+    \n\r\
+    \n     :local backupfile (\"\$sysname-backup-\" . \"\$sysDate\" . \".backu\
+    p\");\r\
+    \n     :log warning \"Creating new Full Backup file...\$backupfile\";\r\
+    \n\r\
+    \n     /system backup save name=\$backupfile;\r\
+    \n     :delay 5;\r\
+    \n\r\
+    \n     :local exportfile (\"\$sysname-backup-\" . \"\$sysDate\" . \".rsc\"\
+    );\r\
+    \n     :log warning \"Creating new Setup Script file...\$exportfile\";\r\
+    \n\r\
+    \n     /export verbose file=\$exportfile;\r\
+    \n     :delay 5;\r\
+    \n\r\
+    \n     :local scriptfile (\"\$sysname-script-\" . \"\$sysDate\" . \".rsc\"\
+    );\r\
+    \n     :log warning \"Creating new file export all scripts ...\$scriptfile\
+    \";\r\
+    \n\r\
+    \n     /system script export file=\$scriptfile;\r\
+    \n     :delay 2;\r\
+    \n\r\
+    \n     :if (any \$fVoice) do={\r\
+    \n        :do {\r\
+    \n           \$fVoice \"backup_saved\"\r\
+    \n         } on-error={}\r\
+    \n      }\r\
+    \n\r\
+    \n   :log warning \"All System Backups and export all Scripts created succ\
+    essfully.\\nBackuping completed.\";\r\
+    \n\r\
+    \nif (\$mailsend) do={\r\
+    \n        :log info \"\";\r\
+    \n        :log warning \"Sending Setup Script file via E-mail...\";\r\
+    \n        :local smtpserv [:resolve \"smtp.mail.ru\"];\r\
+    \n        :local Eaccount [/tool e-mail get user];\r\
+    \n        :local pass [/tool e-mail get password];\r\
+    \n\r\
+    \n         /tool e-mail send from=\"<\$Eaccount>\" to=\$mailBox server=\$s\
+    mtpserv \\\r\
+    \n         port=587 user=\$Eaccount password=\$pass start-tls=yes file=(\$\
+    backupfile, \$exportfile, \$scriptfile) \\\r\
+    \n         subject=(\"\$sysname Setup Script Backup (\" . [/system clock g\
+    et date] . \\\r\
+    \n         \")\") body=(\"\$sysname Setup Script file see in attachment.\\\
+    nRouterOS \\\r\
+    \n         version: \$sysver\\nTime and Date stamp: \" . [/system clock ge\
+    t time] . \" \\\r\
+    \n         \" . [/system clock get date]);\r\
+    \n\r\
+    \n       :log warning \"Setup Script file e-mail send\";\r\
+    \n     :delay 5;\r\
+    \n}"
+add dont-require-permissions=no name=mv_example_DHCP_lease owner=MikroVoice \
+    policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    source=":local allowedIP \"allowedList\"\r\
+    \n/ip dhcp-server lease\r\
+    \n:foreach i in=[find] do={\r\
+    \n    :local addrTMP [get \$i address]\r\
+    \n    :if ([get \$i status]=\"bound\" && ![get \$i dynamic]) do={\r\
+    \n        :do {/ip firewall address-list add address=\$addrTMP list=\$allo\
+    wedIP\r\
+    \n                 :global \$fVoice\r\
+    \n                  \$fVoice addaddress\r\
+    \n            } on-error={}\r\
+    \n    } else={\r\
+    \n        :do {/ip firewall address-list remove [find address=\$addrTMP li\
+    st=\$allowedIP]} on-error={}\r\
+    \n    }\r\
+    \n} "
+add dont-require-permissions=no name=mv_example_pppVoiceEventHandler owner=\
+    MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    \_MikroVoice monitoring new ppp-client VPN connections\r\
+    \n# by Sertik 29/08/2024\r\
+    \n\r\
+    \n:global pppVoiceEventHandler do={\r\
+    \n    :global fVoice\r\
+    \n    /log warning \"On \$1 is added a new item \$2 \$3\"\r\
+    \n    :if ([:len \$2]>0) do={[\$fVoice vpnconnect]} else={[\$fVoice vpndis\
+    connect]}\r\
+    \n    :return []\r\
+    \n}\r\
+    \n\r\
+    \n:execute {\r\
+    \n    :global pppVoiceEventHandler\r\
+    \n    /ppp active print follow-only where [\$pppVoiceEventHandler \"ppp ac\
+    tive\" \$name \$\"caller-id\"]\r\
+    \n\r\
+    \n}"
+add dont-require-permissions=no name=mv_example_ROS_avaliable owner=\
+    MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=":\
+    if (([/system package update check as-value]->\"status\")=\"New version is\
+    \_available\") do={\r\
+    \nglobal fVoice; \$fVoice rosavaliable}"
+add dont-require-permissions=no name=mv_example_wifiVoiceEventHandler owner=\
+    MikroVoice policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source="#\
+    \_MikroVoice monitoring new wifi-client connection\r\
+    \n# by Sertik 29/08/2024\r\
+    \n\r\
+    \n:global wifiVoiceEventHandler do={\r\
+    \n    :global fVoice\r\
+    \n    /log warning \"On \$1 is added a new item \$2 \$3\"\r\
+    \n    :if ([:len \$3]>0) do={[\$fVoice wificonnect]}\r\
+    \n    :return 0\r\
+    \n}\r\
+    \n\r\
+    \n:execute {\r\
+    \n    :global wifiVoiceEventHandler\r\
+    \n    /interface wireless registration-table print follow-only where [\$wi\
+    fiVoiceEventHandler \"wifi registration\" \$comment \$interface]\r\
+    \n\r\
+    \n}"
+	/system scheduler
+add name=start_Mikro_Voice_demo on-event="\r\
+    \n:log warning \"Starting MikroVoice system ...\"\r\
+    \n:local SMPflag true\r\
+    \n:local VoiceLang RUS\r\
+    \n:global fSMP\r\
+    \n:global fVoice\r\
+    \n:global fAlarm\r\
+    \n\r\
+    \n:delay 10s;\r\
+    \n\r\
+    \n# setup MikroVoice system functions\r\
+    \n    :log warning \"Install system functions ....\"\r\
+    \n           :do {\r\
+    \n                      /system script run mv_fSMP\r\
+    \n                      /system script run mv_fVoice\r\
+    \n                      /system script run mv_fAlarm\r\
+    \n                   } on-error={:log error \"MikroVoice components is not\
+    \_find or crahed\";\r\
+    \n                      :set SMPflag false}\r\
+    \n     :log warning \"MikroVoice system is set\"\r\
+    \n\r\
+    \n\r\
+    \n:if (\$SMPflag=true) do={\r\
+    \n\r\
+    \n# reset mp3 module and check it\r\
+    \n:log warning \"Checking MP3/Wav Player module ....\"\r\
+    \n          :local SMPanswer [\$fSMP reset]\r\
+    \n                :if (\$SMPanswer=\"OK\") do={\r\
+    \n                      :log warning \"Please wait for Voice system ready \
+    ...\"\r\
+    \n                      :delay 60s\r\
+    \n\r\
+    \n#-------  playing introdaction\r\
+    \n                      :do {\r\
+    \n                               [\$fAlarm imperial]\r\
+    \n#                             [\$fSMP playfile 1 11]\r\
+    \n                               :log warning \"Playing Imperial ...\"\r\
+    \n                               :delay 20s;\r\
+    \n                               [\$fVoice hellolong \$VoiceLang]\r\
+    \n                               :log warning \"Introdaction MikroVoice\"\
+    \r\
+    \n                              } on-error={\r\
+    \n                                                           :log error \"\
+    Error MikroVoice components works\"\r\
+    \n                            } \r\
+    \n              :log warning \"MikroVoice system is ready !\"\r\
+    \n       } else={:log error \$SMPanswer}\r\
+    \n}" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-time=startup
+add interval=30m name=mv_clock on-event="# MikroVoice voicing the current time\
+    \r\
+    \n\r\
+    \n:do {\r\
+    \n      :global fVoice\r\
+    \n      :global fAlarm\r\
+    \n      :if ([:pick [/system clock get time] 3 5]=30)\\\r\
+    \n           do={\r\
+    \n               \$fAlarm clock_cuckoo\r\
+    \n              } else={\r\
+    \n               \$fVoice (\"h\".\"\$[:pick [/system clock get time] 0 2]\
+    \")\r\
+    \n              }\r\
+    \n    } on-error={}" policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=jun/28/2024 start-time=00:00:00
+	
+:local startPlayFolder 01; # AlarmJinglesFolder
+:local startPlayFile 11; # star wars imperial
+/system script run mv_fSMP
+:delay 4s
+:global fSMP
+:do {[$fSMP playfile $startPlayFolder $startPlayFile]} on-error={}
+:put "MikroVoice scripts and scheduler`s task is set"
+:put "MikroVoice is ready !"
+}
