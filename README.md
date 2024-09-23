@@ -5,6 +5,6 @@ If you insert scripts into your router's repository one at a time, then you shou
 
 To add the entire MikroVoice library (multycards version), use the MikroVoiceSys file and the Router OS Terminal command /import
 
-You can download the sound jingles for the system from the link: https://cloud.mail.ru/public/741f/9R317bvM5
+You can download the sound jingles for the system from the link: https://cloud.mail.ru/public/AYDy/h91wsPkFW
 
 other library functions and the complete TF card collection are provided by the author upon special request
