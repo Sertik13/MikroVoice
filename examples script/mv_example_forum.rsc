@@ -1,0 +1,2 @@
+:global fVoice
+[$fVoice forumrus]
