@@ -17,7 +17,12 @@
      /ip dns cache flush;
      :delay 2;
 
-     :log info "Deleting last Backups...";
+     :log info "Deleting last Backups...";   
+   :if (any $fVoice) do={
+       :do {
+        $fVoice delfiles
+       } on-error={}  
+    }
          :foreach i in=[/file find] do={:if (([:typeof [:find [/file get $i name] \
          "$sysname-backup-"]]!="nil") or ([:typeof [:find [/file get $i name] \
          "$sysname-script-"]]!="nil")) do={/file remove $i}};
