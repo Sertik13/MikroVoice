@@ -1,3 +1,4 @@
+# add in Scheduler with interval 15 sec and name in $SchedName
 
 :local SchedName "check_loginMV"
 :global fVoice
