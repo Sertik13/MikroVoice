@@ -1,3 +1,6 @@
+
+# Voice inform about run services
+
 :global fVoice
 :if ([/ip service get ftp disabled]) do={[$fVoice ftpoff]} else={[$fVoice ftpon]}
 :delay 3s
