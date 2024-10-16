@@ -1,3 +1,4 @@
+# for ROS 6 only !
 # add in Scheduler with interval 15 sec and name in $SchedName, сhange $userName
 
 :local SchedName "check_loginMV"
