@@ -1,3 +1,4 @@
+# for ROS6 only !
 # MikroVoice monitoring new wifi-client connection
 # by Sertik 29/08/2024
 
