@@ -1,6 +1,6 @@
-#--------------------------
-# Backup MikroVoice script 
-#--------------------------
+#------------------------------------
+# Backup MikroVoice script for ROS 6
+#------------------------------------
 
 # send or no send on E-mail
 
