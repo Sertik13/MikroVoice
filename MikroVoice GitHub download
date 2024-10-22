@@ -2,7 +2,8 @@
 # for Terminal ROS
 
 {
-:do {
+:do {       
+       :put  ("MikroVoice system is loaded from GitHub ...")
    /tool fetch url="https://raw.githubusercontent.com/Sertik13/MikroVoice/refs/heads/main/MikroVoiceSys"
          } on-error={:error "MikroVoice System installation file was not found on the disk or remote resource. System installation is not possible."}
         :delay 5s
