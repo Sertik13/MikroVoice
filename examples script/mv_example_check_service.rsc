@@ -17,4 +17,5 @@
 :delay 3s
 :do {
 :if ([/dude get enabled]) do={[$fVoice dudeon]} else={[$fVoice dudeoff]}
+:delay 3s
 } on-error={}
