@@ -9,3 +9,5 @@ or use the script MikroVoiceGitHub download
 You can download the sound jingles for the system from the link: https://cloud.mail.ru/public/AYDy/h91wsPkFW
 
 other library functions and the complete TF card collection are provided by the author upon special request
+
+MikroVoice Demo Video: https://rutube.ru/video/68ce77983ec8d4532b04a45178894866/
