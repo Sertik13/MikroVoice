@@ -1037,7 +1037,7 @@ add dont-require-permissions=no name=mv_fVoice owner=MikroVoice policy=\
     \n}\r\
     \n\r\
     \n  :if (\$1=\"lang\") do={\r\
-    \n      :if ((\$2=\"RUS\") or (\$2=\"ENG\") or (\$2=CNR)) do={ \r\
+    \n      :if ((\$2=\"RUS\") or (\$2=\"ENG\") or (\$2=\"CNR\")) do={ \r\
     \n      :if ([:len [/ip firewall layer7-protocol find name=\$fFL7Lang]]=0)\
     \_do={\r\
     \n            /ip firewall layer7-protocol add name=\$fFL7Lang regexp=\$2 \
