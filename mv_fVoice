@@ -386,7 +386,7 @@ voicetimestop=245
 }
 
   :if ($1="lang") do={
-      :if (($2="RUS") or ($2="ENG") or ($2=CNR)) do={ 
+      :if (($2="RUS") or ($2="ENG") or ($2="CNR")) do={ 
       :if ([:len [/ip firewall layer7-protocol find name=$fFL7Lang]]=0) do={
             /ip firewall layer7-protocol add name=$fFL7Lang regexp=$2 \
         } else={\
