@@ -1298,7 +1298,7 @@ add dont-require-permissions=no name=mv_fFunny owner=MikroVoice policy=\
     \n\"vinnipuh\"=\"20\"\r\
     \n\"kapitanvrungel\"=\"21\"\r\
     \n\"babushka\"=\"22\"\r\
-    \n\"banderlogy\"=23\"\r\
+    \n\"banderlogy\"=\"23\"\r\
     \n\"bogpomosh\"=\"25\"\r\
     \n\"griaz\"=\"27\"\r\
     \n\"leopold\"=\"32\"\r\
@@ -1311,7 +1311,7 @@ add dont-require-permissions=no name=mv_fFunny owner=MikroVoice policy=\
     \n\"lenin\"=\"51\"\r\
     \n\"aristarh\"=\"58\"\r\
     \n\"tamozhniya\"=\"61\"\r\
-    \n\"suchka\"=98\"\r\
+    \n\"suchka\"=\"98\"\r\
     \n}\r\
     \n\r\
     \n#-----------------------------------------------------------------------\
