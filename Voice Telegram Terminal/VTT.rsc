@@ -1,6 +1,8 @@
 #
 # MikroVoice mikroTelegramTerminal by Sertik 26/10/2024
-# -----------------------------------------------
+# requires JSON parser Mikrotik JParseFunctions (https://raw.githubusercontent.com/Winand/mikrotik-json-parser/refs/heads/master/JParseFunctions)
+# and create Scheduler /system script run VTT.rsc with interval 12s
+# -----------------------------------------------------------------
 
 
 # Telegram chat settings:
