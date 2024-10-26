@@ -17,4 +17,5 @@ MikroVoice Demo Video: https://rutube.ru/video/68ce77983ec8d4532b04a45178894866/
 25/10/2024 - An important bug has been fixed in the fVoice function (separate and as part of the MikroVoiceSys package) - the command to switch the system to Chinese [$fVoice lang CNR] did not work. The error has been fixed.
 
 26/10/2024 - Add Voice Telegram Terminal for simple execute MikroVoice function fSMP, fVoice, fAlarm and fFunny
+
 26/10/2024 - bug has been fixed in the fFunny function
