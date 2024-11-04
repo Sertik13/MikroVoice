@@ -39,6 +39,7 @@ do {
   :foreach k,v in=$Results do={
     :if (any ($v->"message"->"text")) do={
      :local cmd ($v->"message"->"text")
+     :if ($cmd ~"@") do={:set $cmd [:pick $cmd 0 [:find $cmd "@"]]}
      :local cmdR 
 :if ([:len [:find $cmd " "]]=0) do={:set cmdR $cmd} else={:set cmdR [:pick $cmd 0 [:find $cmd " "]]}
       :local prefix "/"
