@@ -63,7 +63,7 @@ do {
                             :set cmd ("\$f"."$cmd")
                             :set cmdR ("f"."$key")
                             :set VTTanswer [[:parse ":global $cmdR; :return [$cmd]"]]
-                          } on-error={:set TXT "ERROR call to MikroVoiceSys"; log error ("$TXT "$VTTanser");}
+                          } on-error={:set TXT "ERROR call to MikroVoiceSys"; log error ("$TXT "$VTTanswer");}
                                   :set cmdrun 1;
                                  :set TXT ("Executing command MikroVoice system in progress <- $cmd -> %0A")
                                 /tool fetch url="https://api.telegram.org/bot$TToken/sendmessage\?chat_id=$TChatId" \
