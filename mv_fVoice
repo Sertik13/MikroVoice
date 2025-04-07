@@ -72,7 +72,7 @@
               :delay 5s
               }
    } else={
-# добавление опции проигрывания джингла с предалармом 5сек (в local AlertVoice)
+# adding option to play jingle with 5sec pre-alarm (в local AlertVoice)
        :do {  :global fAlarm
               :if ([$fAlarm find $1]=true) do={[$fAlarm $1]; :delay 5s; [$fSMP stop]
               }
